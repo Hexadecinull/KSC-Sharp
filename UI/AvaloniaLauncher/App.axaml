@@ -1,9 +1,0 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:fluent="clr-namespace:Avalonia.Themes.Fluent;assembly=Avalonia.Themes.Fluent"
-             x:Class="KSCSharp.AvaloniaLauncher.App">
-  <Application.Styles>
-    <!-- Avalonia 11: use FluentTheme without Accents; select Light via RequestedThemeVariant in App.cs -->
-    <fluent:FluentTheme/>
-  </Application.Styles>
-</Application>

@@ -2,15 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KoroneStrap.Core", "KoroneStrap.Core\KoroneStrap.Core.csproj", "{80D6D9A7-3A5F-4B9B-A1F1-9B7B2E7B0D62}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KoroneStrap.Core", "src\KoroneStrap.Core\KoroneStrap.Core.csproj", "{0A0F3EFF-C0EB-4F62-8FCB-DE8BDC83FB3D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsLauncher", "Windows\WindowsLauncher\WindowsLauncher.csproj", "{2F6C84B6-1A5B-4E8C-BD5B-4C9C73D98B7F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KSC-Sharp.App", "src\KSC-Sharp.App\KSC-Sharp.App.csproj", "{74610BC2-F2CE-44FF-8FBE-838ECCA9514C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaLauncher", "UI\AvaloniaLauncher\AvaloniaLauncher.csproj", "{3C9F1EA4-7C8E-4C26-9C0A-EF8A8AE7E0D4}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LinuxLauncher", "Linux\LinuxLauncher\LinuxLauncher.csproj", "{D6B0A0F2-2B7E-4F1A-9F0C-D2E7CB2A1738}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KoroneStrap.Core.Tests", "KoroneStrap.Core.Tests\KoroneStrap.Core.Tests.csproj", "{9D1C5F5A-5E7A-4DC1-B6B3-8A3D9D2F3C8A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KoroneStrap.Core.Tests", "tests\KoroneStrap.Core.Tests\KoroneStrap.Core.Tests.csproj", "{1EB81703-AD43-4C09-88AE-65425C9B51BE}"
 EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,15 +14,17 @@ Global
         Release|Any CPU = Release|Any CPU
     EndGlobalSection
     GlobalSection(ProjectConfigurationPlatforms) = postSolution
-        {80D6D9A7-3A5F-4B9B-A1F1-9B7B2E7B0D62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {80D6D9A7-3A5F-4B9B-A1F1-9B7B2E7B0D62}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {2F6C84B6-1A5B-4E8C-BD5B-4C9C73D98B7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {2F6C84B6-1A5B-4E8C-BD5B-4C9C73D98B7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {3C9F1EA4-7C8E-4C26-9C0A-EF8A8AE7E0D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {3C9F1EA4-7C8E-4C26-9C0A-EF8A8AE7E0D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {D6B0A0F2-2B7E-4F1A-9F0C-D2E7CB2A1738}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {D6B0A0F2-2B7E-4F1A-9F0C-D2E7CB2A1738}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {9D1C5F5A-5E7A-4DC1-B6B3-8A3D9D2F3C8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {9D1C5F5A-5E7A-4DC1-B6B3-8A3D9D2F3C8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {0A0F3EFF-C0EB-4F62-8FCB-DE8BDC83FB3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {0A0F3EFF-C0EB-4F62-8FCB-DE8BDC83FB3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {0A0F3EFF-C0EB-4F62-8FCB-DE8BDC83FB3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {0A0F3EFF-C0EB-4F62-8FCB-DE8BDC83FB3D}.Release|Any CPU.Build.0 = Release|Any CPU
+        {74610BC2-F2CE-44FF-8FBE-838ECCA9514C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {74610BC2-F2CE-44FF-8FBE-838ECCA9514C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {74610BC2-F2CE-44FF-8FBE-838ECCA9514C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {74610BC2-F2CE-44FF-8FBE-838ECCA9514C}.Release|Any CPU.Build.0 = Release|Any CPU
+        {1EB81703-AD43-4C09-88AE-65425C9B51BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {1EB81703-AD43-4C09-88AE-65425C9B51BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {1EB81703-AD43-4C09-88AE-65425C9B51BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {1EB81703-AD43-4C09-88AE-65425C9B51BE}.Release|Any CPU.Build.0 = Release|Any CPU
     EndGlobalSection
 EndGlobal

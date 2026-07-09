@@ -33,24 +33,18 @@ jobs:
         run: dotnet build KSC-Sharp.sln --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test KoroneStrap.Core.Tests/KoroneStrap.Core.Tests.csproj --configuration Release --verbosity normal
+        run: dotnet test tests/KoroneStrap.Core.Tests/KoroneStrap.Core.Tests.csproj --configuration Release --verbosity normal
 
-      - name: Publish Windows Launcher
-        run: dotnet publish Windows/WindowsLauncher/WindowsLauncher.csproj -c Release -r win-x64 --self-contained false -o dist/win
+      - name: Publish app (Windows)
+        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r win-x64 --self-contained false -o dist/win
 
-      - name: Publish Avalonia UI
-        run: dotnet publish UI/AvaloniaLauncher/AvaloniaLauncher.csproj -c Release -r win-x64 --self-contained false -o dist/win-ui
-
-      - name: Package ZIPs
-        run: |
-          powershell Compress-Archive -Path dist/win/* -DestinationPath dist/KSC-Sharp-WindowsLauncher-${{ inputs.version }}.zip
-          powershell Compress-Archive -Path dist/win-ui/* -DestinationPath dist/KSC-Sharp-AvaloniaUI-${{ inputs.version }}.zip
+      - name: Package ZIP
+        run: powershell Compress-Archive -Path dist/win/* -DestinationPath dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
 
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-FileHash dist/KSC-Sharp-WindowsLauncher-${{ inputs.version }}.zip -Algorithm SHA256 | Format-List > dist/KSC-Sharp-WindowsLauncher-${{ inputs.version }}.sha256.txt
-          Get-FileHash dist/KSC-Sharp-AvaloniaUI-${{ inputs.version }}.zip -Algorithm SHA256 | Format-List > dist/KSC-Sharp-AvaloniaUI-${{ inputs.version }}.sha256.txt
+          Get-FileHash dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip -Algorithm SHA256 | Format-List > dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -60,9 +54,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/KSC-Sharp-WindowsLauncher-${{ inputs.version }}.zip
-            dist/KSC-Sharp-WindowsLauncher-${{ inputs.version }}.sha256.txt
-            dist/KSC-Sharp-AvaloniaUI-${{ inputs.version }}.zip
-            dist/KSC-Sharp-AvaloniaUI-${{ inputs.version }}.sha256.txt
+            dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
+            dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
