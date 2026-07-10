@@ -9,7 +9,7 @@ public class ParsedUri
     public string Year { get; set; } = "2017L";
 }
 
-public static class UriParser
+public static class KoroneUriParser
 {
     private static readonly Dictionary<string, string> UriKeyArgMap = new()
     {

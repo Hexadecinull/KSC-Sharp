@@ -70,8 +70,8 @@ internal static class Program
 
     private static int HandleUriLaunch(string rawUri)
     {
-        var cleaned = UriParser.StripScheme(rawUri);
-        var parsed = UriParser.Parse(cleaned);
+        var cleaned = KoroneUriParser.StripScheme(rawUri);
+        var parsed = KoroneUriParser.Parse(cleaned);
 
         Console.WriteLine($"[*] Client version: {parsed.Year}");
         Console.WriteLine($"[*] Launch arguments: {parsed.ArgsString}");

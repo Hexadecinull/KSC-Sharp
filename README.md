@@ -97,7 +97,7 @@ KSC-Sharp/
       KoroneConfig.cs       # branding/URLs/paths - the file to touch when upstream changes
       FastFlagsManager.cs
       BootstrapperDownloader.cs
-      UriParser.cs
+      KoroneUriParser.cs
       Models/
       Platform/
         VersionLocator.cs
@@ -133,7 +133,7 @@ This is a prototype, not a finished product:
   same as upstream — koroneStrap.py itself treats these as WIP in this snapshot.
 - **No code signing** in the release workflow — needs a real certificate before shipping installers.
 - **Android/iOS** are out of scope for this pass (see above).
-- The test suite covers `UriParser`, `FastFlagsManager`'s local cache, and `VersionLocator`'s
+- The test suite covers `KoroneUriParser`, `FastFlagsManager`'s local cache, and `VersionLocator`'s
   path shapes. It does **not** cover `ApplyToInstalledClients` end-to-end (would need a fake
   filesystem / dependency injection for `VersionLocator`, which felt like over-engineering for
   a prototype) or any of the Avalonia UI.
