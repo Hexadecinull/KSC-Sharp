@@ -16,10 +16,10 @@ jobs:
     runs-on: windows-latest
     environment: release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -46,8 +46,18 @@ jobs:
         run: |
           Get-FileHash dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip -Algorithm SHA256 | Format-List > dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
 
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: KSC-Sharp-${{ inputs.version }}-win-x64
+          path: |
+            dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
+            dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ inputs.version }}
           name: KSC-Sharp v${{ inputs.version }}

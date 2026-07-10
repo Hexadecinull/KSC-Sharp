@@ -66,7 +66,13 @@ same logic, this rebuild consolidates to **one Core library + one cross-platform
   Three of the old ones (`macos-ci.yml`, `android-ci.yml`, `ios-ci.yml`) filtered on paths
   (`macOS/**`, `Android/**`, `iOS/**`) that don't exist in the repo, so they never actually
   ran — dead CI. Mobile is intentionally out of scope for this pass; re-add those workflows
-  when you actually start that work.
+  when you actually start that work. Each matrix run now also publishes the app and uploads
+  it via `actions/upload-artifact`, so you can grab a runnable build straight from the Actions
+  run summary instead of building locally every time.
+- **Actions bumped to their Node24 releases** (`actions/checkout@v6`, `actions/setup-dotnet@v5`,
+  `actions/upload-artifact@v7`, `softprops/action-gh-release@v3`) ahead of GitHub's Node20
+  removal. `auto-lock.yml`/`blatant-duplicates.yml` only shell out to the `gh` CLI directly —
+  no JS-runtime actions — so they weren't affected and didn't need changes.
 
 ## What's verified vs. what isn't
 

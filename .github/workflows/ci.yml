@@ -10,15 +10,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -30,3 +36,14 @@ jobs:
 
       - name: Test
         run: dotnet test tests/KoroneStrap.Core.Tests/KoroneStrap.Core.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Publish app (${{ matrix.rid }})
+        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r ${{ matrix.rid }} --self-contained false -o publish
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: KSC-Sharp-${{ matrix.rid }}
+          path: publish/
+          if-no-files-found: error
+          retention-days: 14
