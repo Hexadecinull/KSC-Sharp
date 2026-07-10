@@ -66,7 +66,7 @@
                IsReadOnly="True"
                TextWrapping="Wrap"
                FontFamily="Consolas,Menlo,monospace"
-               VerticalScrollBarVisibility="Auto"/>
+               ScrollViewer.VerticalScrollBarVisibility="Auto"/>
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0" Spacing="8">
         <Button x:Name="BtnClearLog" Content="Clear log"/>
         <Button x:Name="BtnCopyLog" Content="Copy log"/>
