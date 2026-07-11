@@ -2,6 +2,7 @@ using Avalonia;
 using KSCSharp.Core;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
+using System.IO;
 
 namespace KSCSharp.App;
 

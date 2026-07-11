@@ -89,4 +89,18 @@ public static class KoroneConfig
         ["__NV_PRIME_RENDER_OFFLOAD"] = "1",
         ["__GLX_VENDOR_LIBRARY_NAME"] = "nvidia",
     };
+
+    /// <summary>
+    /// Discord Application ID for Rich Presence. THIS IS A PLACEHOLDER - Rich Presence will
+    /// not work until this is replaced with a real application ID from
+    /// https://discord.com/developers/applications (create an app, copy its "Application ID").
+    /// </summary>
+    public const string DiscordClientId = "0000000000000000000";
+
+    /// <summary>
+    /// Rich Presence "Art Asset" key. Needs to be uploaded under the Discord application's
+    /// Rich Presence > Art Assets page with this exact name before it'll actually show an image.
+    /// </summary>
+    public const string DiscordLargeImageKey = "logo";
+    public const string DiscordLargeImageText = ProductName;
 }

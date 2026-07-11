@@ -7,33 +7,52 @@
         MinWidth="440" MinHeight="380"
         CanResize="True"
         Background="{DynamicResource SurfaceBrush}">
-  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="18">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
 
-    <TextBlock Grid.Row="0" Text="FastFlags" Classes="h1" Margin="0,0,0,14"/>
-
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
-      <TextBox x:Name="TxtKey" Watermark="Key (e.g. FFlagDebugGraphicsDisableMetal)" Width="290"/>
-      <TextBox x:Name="TxtValue" Watermark="Value (e.g. true)" Width="130"/>
-      <Button x:Name="BtnAddOrUpdate" Content="Add / Update" Classes="secondary"/>
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,14">
+      <TextBlock Text="FastFlags" Classes="h1"/>
+      <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                 ToolTip.Tip="FastFlags are client-side settings written into the installed client's ClientAppSettings.json. They take effect the next time that client launches."/>
     </StackPanel>
 
-    <Border Grid.Row="2" Classes="card" Padding="4">
-      <ListBox x:Name="FlagsList" Background="Transparent" BorderThickness="0">
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <Grid ColumnDefinitions="*,Auto" Margin="4,3">
-              <TextBlock Grid.Column="0" Text="{Binding Display}" VerticalAlignment="Center"
-                         FontFamily="Consolas,Menlo,monospace" FontSize="12.5"/>
-              <Button Grid.Column="1" Content="Remove" Classes="ghost" Click="RemoveFlag_Click" Tag="{Binding}"/>
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
+    <!-- Everything below lives in one card, so the editor reads as a single unit instead of a
+         floating input row above a separate list. -->
+    <Border Grid.Row="1" Classes="card" Padding="16">
+      <Grid RowDefinitions="Auto,Auto,*">
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+          <TextBox x:Name="TxtKey" Watermark="Key (e.g. FFlagDebugGraphicsDisableMetal)" Width="280"/>
+          <TextBox x:Name="TxtValue" Watermark="Value (e.g. true)" Width="120"/>
+          <Button x:Name="BtnAddOrUpdate" Content="Add / Update" Classes="secondary"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,0,0,10"/>
+
+        <Panel Grid.Row="2">
+          <ListBox x:Name="FlagsList" Background="Transparent" BorderThickness="0">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="*,Auto" Margin="4,3">
+                  <TextBlock Grid.Column="0" Text="{Binding Display}" VerticalAlignment="Center"
+                             FontFamily="Consolas,Menlo,monospace" FontSize="12.5"/>
+                  <Button Grid.Column="1" Content="Remove" Classes="ghost" Click="RemoveFlag_Click" Tag="{Binding}"/>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <StackPanel x:Name="EmptyState" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+            <TextBlock Text="No FastFlags yet" Classes="subtle" HorizontalAlignment="Center" FontWeight="Medium"/>
+            <TextBlock Text="Add a key and value above to get started." Classes="subtle" HorizontalAlignment="Center"/>
+          </StackPanel>
+        </Panel>
+
+      </Grid>
     </Border>
 
-    <TextBlock Grid.Row="3" x:Name="StatusText" Classes="subtle" Margin="2,10,0,0"/>
+    <TextBlock Grid.Row="2" x:Name="StatusText" Classes="subtle" Margin="2,10,0,0"/>
 
-    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
       <Button x:Name="BtnCancel" Content="Cancel" Classes="ghost"/>
       <Button x:Name="BtnSave" Content="Save" Classes="secondary"/>
       <Button x:Name="BtnApplyNow" Content="Save &amp; Apply to Installed Clients" Classes="primary"/>

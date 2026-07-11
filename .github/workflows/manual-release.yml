@@ -4,9 +4,33 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 0.1.0)'
+        description: 'Version number (e.g. 0.1.0) - no leading "v", no suffix'
         required: true
         type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        default: release
+        options:
+          - release
+          - pre-release
+          - beta
+          - alpha
+          - experimental
+      changelog:
+        description: >-
+          Changelog highlight (optional). Note: GitHub's "Run workflow" web form only allows a
+          single line here - for a real multi-line changelog, trigger this via `gh workflow run
+          manual-release.yml -f changelog="$(cat notes.md)"` or the API instead. Either way, a
+          list of commits since the last tag is appended automatically below this.
+        required: false
+        type: string
+      draft:
+        description: 'Create as a draft (review before publishing)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,54 +41,112 @@ jobs:
     environment: release
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
-      - name: Set version file
-        run: echo "${{ inputs.version }}" > VERSION.txt
+      - name: Resolve release metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $type = "${{ inputs.release_type }}"
+          $version = "${{ inputs.version }}"
+
+          $label = switch ($type) {
+            "release"      { "" }
+            "pre-release"  { " (Pre-release)" }
+            "beta"         { " (Beta)" }
+            "alpha"        { " (Alpha)" }
+            "experimental" { " (Experimental)" }
+            default        { "" }
+          }
+          $isPrerelease = $type -ne "release"
+
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "title=KSC-Sharp v$version$label" >> $env:GITHUB_OUTPUT
+          echo "prerelease=$($isPrerelease.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Build release notes
+        shell: pwsh
+        run: |
+          $lastTag = git describe --tags --abbrev=0 2>$null
+          if ($LASTEXITCODE -eq 0 -and $lastTag) {
+            $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)"
+          } else {
+            $commits = git log --pretty=format:"- %s (%h)"
+          }
+          if (-not $commits) { $commits = "- No commits since the last tag." }
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $manual = "${{ inputs.changelog }}".Trim()
+          if ($manual) {
+            $lines.Add($manual)
+            $lines.Add("")
+          }
+          $lines.Add("### Commits since last release")
+          $lines.Add($commits)
+          $lines -join "`n" | Out-File -FilePath release-notes.md -Encoding utf8
 
       - name: Restore
         run: dotnet restore KSC-Sharp.sln
 
       - name: Build solution
-        run: dotnet build KSC-Sharp.sln --configuration Release --no-restore
+        run: dotnet build KSC-Sharp.sln --configuration Release --no-restore -p:Version=${{ steps.meta.outputs.version }}
 
       - name: Run tests
         run: dotnet test tests/KoroneStrap.Core.Tests/KoroneStrap.Core.Tests.csproj --configuration Release --verbosity normal
 
       - name: Publish app (Windows)
-        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r win-x64 --self-contained false -o dist/win
+        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r win-x64 --self-contained false -o dist/win -p:Version=${{ steps.meta.outputs.version }}
 
-      - name: Package ZIP
-        run: powershell Compress-Archive -Path dist/win/* -DestinationPath dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
+      - name: Package portable ZIP
+        run: powershell Compress-Archive -Path dist/win/* -DestinationPath dist/KSC-Sharp-${{ steps.meta.outputs.version }}-win-x64.zip
+
+      # windows-latest's image doesn't ship Inno Setup by default (dropped when the image
+      # moved to Windows Server 2025) - install it explicitly rather than assume ISCC.exe
+      # is already on PATH.
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.meta.outputs.version }} installer\Inno\installer.iss
+          Copy-Item "installer\Inno\Output\*.exe" "dist\"
 
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-FileHash dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip -Algorithm SHA256 | Format-List > dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
+          Get-ChildItem dist\*.zip, dist\*.exe | ForEach-Object {
+            Get-FileHash $_.FullName -Algorithm SHA256 | Format-List | Out-File -Append dist\checksums.sha256.txt
+          }
 
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
-          name: KSC-Sharp-${{ inputs.version }}-win-x64
+          name: KSC-Sharp-${{ steps.meta.outputs.version }}
           path: |
-            dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
-            dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
+            dist/*.zip
+            dist/*.exe
+            dist/checksums.sha256.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ inputs.version }}
-          name: KSC-Sharp v${{ inputs.version }}
-          draft: false
-          prerelease: false
+          tag_name: v${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.title }}
+          body_path: release-notes.md
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
           files: |
-            dist/KSC-Sharp-${{ inputs.version }}-win-x64.zip
-            dist/KSC-Sharp-${{ inputs.version }}-win-x64.sha256.txt
+            dist/*.zip
+            dist/*.exe
+            dist/checksums.sha256.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

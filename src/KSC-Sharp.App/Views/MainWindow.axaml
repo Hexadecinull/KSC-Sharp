@@ -3,8 +3,8 @@
         x:Class="KSCSharp.App.Views.MainWindow"
         Icon="avares://KSC-Sharp.App/Assets/icon.png"
         Title="KSC-Sharp"
-        Width="900" Height="620"
-        MinWidth="720" MinHeight="480"
+        Width="920" Height="640"
+        MinWidth="740" MinHeight="500"
         Background="{DynamicResource SurfaceBrush}">
   <Grid ColumnDefinitions="220,*">
 
@@ -23,6 +23,7 @@
         <StackPanel Grid.Row="1" Spacing="2">
           <Button x:Name="NavLaunch" Classes="navitem selected" Content="▶  Launch"/>
           <Button x:Name="NavIntegrations" Classes="navitem" Content="⚙  Integrations"/>
+          <Button x:Name="NavDiscord" Classes="navitem" Content="◆  Discord"/>
           <Button x:Name="NavLog" Classes="navitem" Content="≡  Log"/>
           <Button x:Name="NavAbout" Classes="navitem" Content="ℹ  About"/>
         </StackPanel>
@@ -45,13 +46,18 @@
 
         <Border Classes="card">
           <StackPanel Spacing="10">
-            <TextBlock Text="Bootstrapper" Classes="h2"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Bootstrapper" Classes="h2"/>
+              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="The bootstrapper is Pekora's own installer/updater program. Download it here, then run it whenever you want to install the client fresh or check for updates — KSC-Sharp itself doesn't install game files directly."/>
+            </StackPanel>
             <WrapPanel>
               <Button x:Name="BtnFastFlags" Content="FastFlags…" Classes="secondary" Margin="0,0,8,8"/>
               <Button x:Name="BtnDownloadBootstrapper" Content="Download / Update" Classes="secondary" Margin="0,0,8,8"/>
               <Button x:Name="BtnLaunchBootstrapper" Content="Run Bootstrapper" Classes="secondary" Margin="0,0,8,8"/>
             </WrapPanel>
-            <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock x:Name="BootstrapperStatusText" Classes="subtle"/>
+            <StackPanel x:Name="DownloadProgressRow" Orientation="Horizontal" Spacing="10" IsVisible="False">
               <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Height="8" Width="260"
                            Foreground="{DynamicResource AccentBrush}"/>
               <TextBlock x:Name="ProgressText" Text="0%" Classes="subtle" VerticalAlignment="Center"/>
@@ -66,7 +72,11 @@
 
         <Border x:Name="WindowsIntegrationPanel" Classes="card">
           <StackPanel Spacing="10">
-            <TextBlock Text="Windows" Classes="h2"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Windows" Classes="h2"/>
+              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="Registers pekora-player:// in the Windows registry (current user only, no admin needed) so clicking a join link in your browser opens KSC-Sharp instead of doing nothing."/>
+            </StackPanel>
             <TextBlock Text="Registers the pekora-player:// link handler so join links from the browser open here."
                        Classes="subtle" TextWrapping="Wrap"/>
             <WrapPanel>
@@ -78,7 +88,11 @@
 
         <Border x:Name="LinuxIntegrationPanel" Classes="card">
           <StackPanel Spacing="10">
-            <TextBlock Text="Linux" Classes="h2"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Linux" Classes="h2"/>
+              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="Adds a desktop entry and icon under your applications menu, and registers KSC-Sharp as the handler for pekora-player:// links. Safe to run again if you move the app - it just rewrites the entry."/>
+            </StackPanel>
             <TextBlock Text="Experimental — client versions run under Wine. Adds a desktop entry, icon, and link handler."
                        Classes="subtle" TextWrapping="Wrap"/>
             <WrapPanel>
@@ -90,10 +104,71 @@
 
         <Border Classes="card">
           <StackPanel Spacing="10">
-            <TextBlock Text="Wine (Linux / macOS)" Classes="h2"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Wine (Linux / macOS)" Classes="h2"/>
+              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="Pekora's client is a Windows program, so it needs Wine to run anywhere else. This shows whether KSC-Sharp could find a working Wine install."/>
+            </StackPanel>
             <TextBlock x:Name="WineStatusText" Classes="subtle" TextWrapping="Wrap"/>
           </StackPanel>
         </Border>
+      </StackPanel>
+
+      <!-- Discord page -->
+      <StackPanel x:Name="DiscordPage" Spacing="16" IsVisible="False">
+        <StackPanel>
+          <TextBlock Text="Discord Rich Presence" Classes="h1"/>
+          <TextBlock Text="Requires the Discord desktop app to be installed and running." Classes="subtle"/>
+        </StackPanel>
+
+        <Border Classes="card">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="2">
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
+              <TextBlock Text="Show game activity" Classes="h2"/>
+              <TextBlock Text="The client you're playing will be shown on your Discord profile." Classes="subtle" TextWrapping="Wrap"/>
+            </StackPanel>
+            <ToggleSwitch x:Name="ToggleDiscordEnabled" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center"/>
+
+            <Border Grid.Row="1" Grid.ColumnSpan="2" Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12"/>
+
+            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,16,0">
+              <TextBlock Text="Discord status display" Classes="h2"/>
+              <TextBlock Text="Choose how much detail to show." Classes="subtle" TextWrapping="Wrap"/>
+            </StackPanel>
+            <ComboBox x:Name="ComboDiscordDisplay" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" MinWidth="200">
+              <ComboBoxItem Content="Name (Playing Korone)"/>
+              <ComboBoxItem Content="Details (Playing Game)"/>
+            </ComboBox>
+
+            <Border Grid.Row="3" Grid.ColumnSpan="2" Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12"/>
+
+            <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,16,0">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Allow activity joining" Classes="h2"/>
+                <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                           ToolTip.Tip="Adds a Join button to your Discord activity. Outbound only for now — friends can see and click it, but KSC-Sharp doesn't yet act on an incoming join request."/>
+              </StackPanel>
+              <TextBlock Text="Shows a Join button so friends can join your game from Discord." Classes="subtle" TextWrapping="Wrap"/>
+            </StackPanel>
+            <ToggleSwitch x:Name="ToggleDiscordJoining" Grid.Row="4" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center"/>
+
+            <Border Grid.Row="5" Grid.ColumnSpan="2" Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12"/>
+
+            <StackPanel Grid.Row="6" Grid.Column="0" Margin="0,0,16,0">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Show Pekora account" Classes="h2"/>
+                <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                           ToolTip.Tip="KSC-Sharp doesn't currently detect which Pekora account is logged in, so this has no visible effect yet - it's here so the setting is in the right place once account detection is added."/>
+              </StackPanel>
+              <TextBlock Text="Not yet functional — see the ⓘ for why." Classes="subtle" TextWrapping="Wrap"/>
+            </StackPanel>
+            <ToggleSwitch x:Name="ToggleDiscordAccount" Grid.Row="6" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center"/>
+
+          </Grid>
+        </Border>
+
+        <TextBlock x:Name="DiscordStatusText" Classes="subtle"/>
       </StackPanel>
 
       <!-- Log page -->
@@ -118,36 +193,65 @@
       </Grid>
 
       <!-- About page -->
-      <StackPanel x:Name="AboutPage" Spacing="16" IsVisible="False">
-        <TextBlock Text="About" Classes="h1"/>
+      <ScrollViewer x:Name="AboutPage" IsVisible="False">
+        <StackPanel Spacing="16" Margin="0,0,12,0">
+          <TextBlock Text="About" Classes="h1"/>
 
-        <Border Classes="card">
-          <StackPanel Orientation="Horizontal" Spacing="16">
-            <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="56" Height="56"/>
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="KSC-Sharp" Classes="h2"/>
-              <TextBlock x:Name="AboutVersionText" Classes="subtle"/>
+          <Border Classes="card">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+              <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="56" Height="56"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="KSC-Sharp" Classes="h2"/>
+                <TextBlock x:Name="AboutVersionText" Classes="subtle"/>
+              </StackPanel>
             </StackPanel>
-          </StackPanel>
-        </Border>
+          </Border>
 
-        <Border Classes="card">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Credits" Classes="h2"/>
-            <Button Content="Bloxstrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenBloxstrap_Click"/>
-            <Button Content="koroneStrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneStrap_Click"/>
-            <Button Content="Korone Bootstrapper  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneBootstrapper_Click"/>
-          </StackPanel>
-        </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Project" Classes="h2"/>
+              <TextBlock Text="A cross-platform bootstrapper for Korone (Pekora), styled after Bloxstrap and rewritten from koroneStrap in C#."
+                         Classes="subtle" TextWrapping="Wrap"/>
+              <Button Content="Source Code  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenSource_Click"/>
+              <Button Content="Report an Issue  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenIssues_Click"/>
+              <TextBlock Text="KSC-Sharp is licensed under GPL-3.0." Classes="subtle" Margin="0,4,0,0"/>
+            </StackPanel>
+          </Border>
 
-        <Border Classes="card">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Data" Classes="h2"/>
-            <TextBlock Text="Downloaded files and FastFlags live outside the install folder, so an uninstall never leaves game data behind unexpectedly." Classes="subtle" TextWrapping="Wrap"/>
-            <Button x:Name="BtnOpenAppData" Content="Open App Data Folder" Classes="secondary" HorizontalAlignment="Left"/>
-          </StackPanel>
-        </Border>
-      </StackPanel>
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Credits" Classes="h2"/>
+
+              <StackPanel Spacing="2">
+                <Button Content="koroneStrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneStrap_Click"/>
+                <TextBlock Text="by LittleBigDevs · GPL-3.0 · the Python bootstrapper this is a rewrite of." Classes="subtle" Margin="12,0,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+
+              <StackPanel Spacing="2">
+                <Button Content="Bloxstrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenBloxstrap_Click"/>
+                <TextBlock Text="by pizzaboxer / Bloxstrap Labs · MIT · UI/UX reference and the model for features like Discord Rich Presence." Classes="subtle" Margin="12,0,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+
+              <StackPanel Spacing="2">
+                <Button Content="Korone Bootstrapper  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneBootstrapper_Click"/>
+                <TextBlock Text="by KoroneX · license not published upstream · the original native bootstrapper this whole lineage descends from." Classes="subtle" Margin="12,0,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Data" Classes="h2"/>
+                <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                           ToolTip.Tip="This folder holds the downloaded bootstrapper, your local FastFlags cache, and app settings — never your Pekora client install itself."/>
+              </StackPanel>
+              <TextBlock Text="Downloaded files and FastFlags live outside the install folder, so an uninstall never leaves game data behind unexpectedly." Classes="subtle" TextWrapping="Wrap"/>
+              <Button x:Name="BtnOpenAppData" Content="Open App Data Folder" Classes="secondary" HorizontalAlignment="Left"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
 
     </Grid>
   </Grid>

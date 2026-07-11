@@ -27,6 +27,8 @@ public partial class FastFlagsWindow : Window
         _items = new ObservableCollection<FastFlagEntry>(
             flags.Select(kv => new FastFlagEntry(kv.Key, kv.Value?.ToString() ?? "")));
         FlagsList.ItemsSource = _items;
+        _items.CollectionChanged += (_, _) => UpdateEmptyState();
+        UpdateEmptyState();
 
         StatusText.Text = $"{_items.Count} flag(s) loaded.";
 
@@ -35,6 +37,8 @@ public partial class FastFlagsWindow : Window
         BtnApplyNow.Click += (_, _) => CloseWithResult(applyNow: true);
         BtnCancel.Click += (_, _) => Close(null);
     }
+
+    private void UpdateEmptyState() => EmptyState.IsVisible = _items.Count == 0;
 
     private void BtnAddOrUpdate_Click(object? sender, RoutedEventArgs e)
     {

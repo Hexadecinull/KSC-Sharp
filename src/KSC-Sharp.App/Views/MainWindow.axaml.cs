@@ -4,11 +4,11 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using KSCSharp.Core;
+using KSCSharp.Core.Discord;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +18,8 @@ namespace KSCSharp.App.Views;
 public partial class MainWindow : Window
 {
     private readonly FastFlagsManager _flagsManager = new();
+    private readonly AppSettings _settings = AppSettings.Load();
+    private readonly DiscordRpcManager _discord = new();
     private Button[] _navButtons = Array.Empty<Button>();
     private Control[] _pages = Array.Empty<Control>();
 
@@ -33,6 +35,7 @@ public partial class MainWindow : Window
 
         BuildVersionButtons();
         WireNav();
+        WireDiscord();
 
         BtnFastFlags.Click += BtnFastFlags_Click;
         BtnDownloadBootstrapper.Click += BtnDownloadBootstrapper_Click;
@@ -48,6 +51,8 @@ public partial class MainWindow : Window
         WindowsIntegrationPanel.IsVisible = OperatingSystem.IsWindows();
         LinuxIntegrationPanel.IsVisible = OperatingSystem.IsLinux();
 
+        RefreshBootstrapperStatus();
+
         if (SystemInfo.RequiresWine)
         {
             var wine = ProcessLauncher.ResolveWineCommand();
@@ -62,6 +67,15 @@ public partial class MainWindow : Window
         {
             WineStatusText.Text = "Not needed on this platform.";
         }
+
+        Closed += (_, _) =>
+        {
+            if (_discord.IsConnected)
+            {
+                _discord.ClearActivity();
+                _discord.Disconnect();
+            }
+        };
     }
 
     private static string DescribePlatform()
@@ -82,13 +96,14 @@ public partial class MainWindow : Window
 
     private void WireNav()
     {
-        _navButtons = new[] { NavLaunch, NavIntegrations, NavLog, NavAbout };
-        _pages = new Control[] { LaunchPage, IntegrationsPage, LogPage, AboutPage };
+        _navButtons = new[] { NavLaunch, NavIntegrations, NavDiscord, NavLog, NavAbout };
+        _pages = new Control[] { LaunchPage, IntegrationsPage, DiscordPage, LogPage, AboutPage };
 
         NavLaunch.Click += (_, _) => ShowPage(0);
         NavIntegrations.Click += (_, _) => ShowPage(1);
-        NavLog.Click += (_, _) => ShowPage(2);
-        NavAbout.Click += (_, _) => ShowPage(3);
+        NavDiscord.Click += (_, _) => ShowPage(2);
+        NavLog.Click += (_, _) => ShowPage(3);
+        NavAbout.Click += (_, _) => ShowPage(4);
     }
 
     private void ShowPage(int index)
@@ -137,6 +152,10 @@ public partial class MainWindow : Window
                 IsEnabled = version.Available,
             };
 
+            ToolTip.SetTip(button, version.Experimental
+                ? $"{version.DisplayName}: not verified upstream, more likely to hit rendering quirks (especially under Wine)."
+                : $"Launch the {version.DisplayName} client.");
+
             if (version.Available)
                 button.Click += (_, _) => LaunchVersion(version);
 
@@ -165,22 +184,43 @@ public partial class MainWindow : Window
                 AppendLog("[-] Executable not found. Searched:");
                 foreach (var p in VersionLocator.GetExecutablePaths(version.FolderName))
                     AppendLog($"    - {p}");
-                ShowPage(2);
+                ShowPage(3);
                 return;
             }
 
-            ProcessLauncher.Launch(exePath, new[] { "--app" });
+            var process = ProcessLauncher.Launch(exePath, new[] { "--app" });
             AppendLog($"[+] Launched: {exePath}");
+
+            UpdateDiscordActivity(version);
+            HookProcessExitForDiscord(process);
         }
         catch (ProcessLaunchException ex)
         {
             AppendLog($"[!] {ex.Message}");
-            ShowPage(2);
+            ShowPage(3);
         }
         catch (Exception ex)
         {
             AppendLog($"[!] Launch failed: {ex.Message}");
-            ShowPage(2);
+            ShowPage(3);
+        }
+    }
+
+    private void HookProcessExitForDiscord(Process process)
+    {
+        try
+        {
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) =>
+            {
+                if (_discord.IsConnected)
+                    _discord.ClearActivity();
+            };
+        }
+        catch (Exception)
+        {
+            // Wine-wrapped processes can behave oddly here on some distros - not fatal,
+            // presence just won't auto-clear when the game closes.
         }
     }
 
@@ -210,6 +250,7 @@ public partial class MainWindow : Window
     private async void BtnDownloadBootstrapper_Click(object? sender, RoutedEventArgs e)
     {
         AppendLog("Starting bootstrapper download...");
+        DownloadProgressRow.IsVisible = true;
         SetProgress(0);
 
         var downloader = new BootstrapperDownloader();
@@ -234,7 +275,8 @@ public partial class MainWindow : Window
         }
 
         AppendLog(ok ? $"[*] Download finished ({downloader.OutputFile})." : "[!] Download failed.");
-        SetProgress(0);
+        DownloadProgressRow.IsVisible = false;
+        RefreshBootstrapperStatus();
     }
 
     private void BtnLaunchBootstrapper_Click(object? sender, RoutedEventArgs e)
@@ -255,6 +297,14 @@ public partial class MainWindow : Window
         {
             AppendLog($"[!] {ex.Message}");
         }
+    }
+
+    private void RefreshBootstrapperStatus()
+    {
+        var path = System.IO.Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.BootstrapperFileName);
+        BootstrapperStatusText.Text = System.IO.File.Exists(path)
+            ? $"Downloaded — last updated {System.IO.File.GetLastWriteTime(path):yyyy-MM-dd HH:mm}."
+            : "Not downloaded yet.";
     }
 
     // ----- Integrations page -----
@@ -292,6 +342,91 @@ public partial class MainWindow : Window
         }
     }
 
+    // ----- Discord page -----
+
+    private void WireDiscord()
+    {
+        ToggleDiscordEnabled.IsChecked = _settings.DiscordEnabled;
+        ToggleDiscordJoining.IsChecked = _settings.DiscordAllowJoining;
+        ToggleDiscordAccount.IsChecked = _settings.DiscordShowAccount;
+        ComboDiscordDisplay.SelectedIndex = _settings.DiscordShowDetails ? 1 : 0;
+
+        if (_settings.DiscordEnabled)
+            TryConnectDiscord();
+        else
+            DiscordStatusText.Text = "Discord Rich Presence is off.";
+
+        ToggleDiscordEnabled.Click += (_, _) =>
+        {
+            _settings.DiscordEnabled = ToggleDiscordEnabled.IsChecked == true;
+            _settings.Save();
+
+            if (_settings.DiscordEnabled)
+                TryConnectDiscord();
+            else
+            {
+                _discord.ClearActivity();
+                _discord.Disconnect();
+                DiscordStatusText.Text = "Discord Rich Presence is off.";
+            }
+        };
+
+        ComboDiscordDisplay.SelectionChanged += (_, _) =>
+        {
+            _settings.DiscordShowDetails = ComboDiscordDisplay.SelectedIndex == 1;
+            _settings.Save();
+        };
+
+        ToggleDiscordJoining.Click += (_, _) =>
+        {
+            _settings.DiscordAllowJoining = ToggleDiscordJoining.IsChecked == true;
+            _settings.Save();
+        };
+
+        ToggleDiscordAccount.Click += (_, _) =>
+        {
+            _settings.DiscordShowAccount = ToggleDiscordAccount.IsChecked == true;
+            _settings.Save();
+        };
+    }
+
+    private void TryConnectDiscord()
+    {
+        var ok = _discord.Connect();
+        DiscordStatusText.Text = ok
+            ? "Connected to Discord."
+            : "Couldn't reach Discord (is it running?). Will show activity next time a client launches and it's found.";
+        AppendLog(ok ? "[*] Discord Rich Presence connected." : "[!] Discord Rich Presence: couldn't connect.");
+    }
+
+    private void UpdateDiscordActivity(ClientVersion version)
+    {
+        if (!_settings.DiscordEnabled)
+            return;
+
+        if (!_discord.IsConnected)
+            TryConnectDiscord();
+
+        if (!_discord.IsConnected)
+            return;
+
+        var activity = new DiscordActivity
+        {
+            Details = $"Playing {KoroneConfig.ProductName}",
+            State = _settings.DiscordShowDetails ? $"{version.DisplayName} client" : null,
+            StartTimestamp = DateTimeOffset.UtcNow,
+            LargeImageKey = KoroneConfig.DiscordLargeImageKey,
+            LargeImageText = KoroneConfig.DiscordLargeImageText,
+            PartyId = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString() : null,
+            PartySize = _settings.DiscordAllowJoining ? 1 : null,
+            PartyMax = _settings.DiscordAllowJoining ? 4 : null,
+            JoinSecret = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString("N") : null,
+        };
+
+        var ok = _discord.SetActivity(activity);
+        AppendLog(ok ? "[*] Discord activity updated." : "[!] Discord activity update failed.");
+    }
+
     // ----- About page -----
 
     private void OpenBloxstrap_Click(object? sender, RoutedEventArgs e) =>
@@ -302,6 +437,12 @@ public partial class MainWindow : Window
 
     private void OpenKoroneBootstrapper_Click(object? sender, RoutedEventArgs e) =>
         OpenUrl("https://github.com/KoroneX/Korone-Bootstrapper");
+
+    private void OpenSource_Click(object? sender, RoutedEventArgs e) =>
+        OpenUrl("https://github.com/Hexadecinull/KSC-Sharp");
+
+    private void OpenIssues_Click(object? sender, RoutedEventArgs e) =>
+        OpenUrl("https://github.com/Hexadecinull/KSC-Sharp/issues");
 
     private void OpenUrl(string url)
     {
