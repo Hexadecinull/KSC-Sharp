@@ -1,77 +1,154 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="KSCSharp.App.Views.MainWindow"
+        Icon="avares://KSC-Sharp.App/Assets/icon.png"
         Title="KSC-Sharp"
-        Width="820" Height="600"
-        MinWidth="640" MinHeight="480">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="12">
+        Width="900" Height="620"
+        MinWidth="720" MinHeight="480"
+        Background="{DynamicResource SurfaceBrush}">
+  <Grid ColumnDefinitions="220,*">
 
-    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
-      <TextBlock Text="KSC-Sharp" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
-      <TextBlock x:Name="SubtitleText" VerticalAlignment="Center" Opacity="0.7"/>
-    </StackPanel>
+    <!-- Sidebar -->
+    <Border Grid.Column="0" Background="{DynamicResource InkBrush}">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="14,20,14,16">
 
-    <StackPanel Grid.Row="1" Spacing="10">
-
-      <Border Padding="10" CornerRadius="6" Background="#12000000">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Launch" FontWeight="SemiBold"/>
-          <WrapPanel x:Name="VersionButtonsPanel"/>
-        </StackPanel>
-      </Border>
-
-      <Border Padding="10" CornerRadius="6" Background="#12000000">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Bootstrapper" FontWeight="SemiBold"/>
-          <WrapPanel>
-            <Button x:Name="BtnFastFlags" Content="FastFlags…" Margin="0,0,8,0"/>
-            <Button x:Name="BtnDownloadBootstrapper" Content="Download / Update Bootstrapper" Margin="0,0,8,0"/>
-            <Button x:Name="BtnLaunchBootstrapper" Content="Run Bootstrapper" Margin="0,0,8,0"/>
-          </WrapPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Height="16" Width="280"/>
-            <TextBlock x:Name="ProgressText" Text="0%" VerticalAlignment="Center"/>
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0,0,26">
+          <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="30" Height="30"/>
+          <StackPanel>
+            <TextBlock Text="KSC-Sharp" FontSize="16" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="for Korone" FontSize="11" Foreground="#A79CD6"/>
           </StackPanel>
         </StackPanel>
-      </Border>
 
-      <Border x:Name="WindowsIntegrationPanel" Padding="10" CornerRadius="6" Background="#12000000">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Windows Integration" FontWeight="SemiBold"/>
-          <WrapPanel>
-            <Button x:Name="BtnRegisterUri" Content="Register URI Scheme" Margin="0,0,8,0"/>
-            <Button x:Name="BtnUnregisterUri" Content="Unregister URI Scheme" Margin="0,0,8,0"/>
-          </WrapPanel>
+        <StackPanel Grid.Row="1" Spacing="2">
+          <Button x:Name="NavLaunch" Classes="navitem selected" Content="▶  Launch"/>
+          <Button x:Name="NavIntegrations" Classes="navitem" Content="⚙  Integrations"/>
+          <Button x:Name="NavLog" Classes="navitem" Content="≡  Log"/>
+          <Button x:Name="NavAbout" Classes="navitem" Content="ℹ  About"/>
         </StackPanel>
-      </Border>
 
-      <Border x:Name="LinuxIntegrationPanel" Padding="10" CornerRadius="6" Background="#12000000">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Linux Integration" FontWeight="SemiBold"/>
-          <TextBlock Text="Experimental — client versions run under Wine." Opacity="0.7" FontSize="12"/>
-          <WrapPanel>
-            <Button x:Name="BtnSetupLinuxIntegration" Content="Setup Desktop Integration" Margin="0,0,8,0"/>
-            <Button x:Name="BtnRemoveLinuxIntegration" Content="Remove Desktop Integration" Margin="0,0,8,0"/>
-          </WrapPanel>
+        <TextBlock Grid.Row="2" x:Name="SidebarVersionText" Foreground="#8079AA" FontSize="11" Margin="4,0,0,0"/>
+      </Grid>
+    </Border>
+
+    <!-- Content -->
+    <Grid Grid.Column="1" Margin="28,24,28,20">
+
+      <!-- Launch page -->
+      <StackPanel x:Name="LaunchPage" Spacing="16">
+        <StackPanel>
+          <TextBlock Text="Launch" Classes="h1"/>
+          <TextBlock x:Name="SubtitleText" Classes="subtle"/>
         </StackPanel>
-      </Border>
 
-    </StackPanel>
+        <WrapPanel x:Name="VersionButtonsPanel"/>
 
-    <Grid Grid.Row="2" Margin="0,12,0,0" RowDefinitions="Auto,*,Auto">
-      <TextBlock Text="Log" FontWeight="SemiBold" Margin="0,0,0,6"/>
-      <TextBox x:Name="LogTextBox"
-               Grid.Row="1"
-               AcceptsReturn="True"
-               IsReadOnly="True"
-               TextWrapping="Wrap"
-               FontFamily="Consolas,Menlo,monospace"
-               ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0" Spacing="8">
-        <Button x:Name="BtnClearLog" Content="Clear log"/>
-        <Button x:Name="BtnCopyLog" Content="Copy log"/>
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Bootstrapper" Classes="h2"/>
+            <WrapPanel>
+              <Button x:Name="BtnFastFlags" Content="FastFlags…" Classes="secondary" Margin="0,0,8,8"/>
+              <Button x:Name="BtnDownloadBootstrapper" Content="Download / Update" Classes="secondary" Margin="0,0,8,8"/>
+              <Button x:Name="BtnLaunchBootstrapper" Content="Run Bootstrapper" Classes="secondary" Margin="0,0,8,8"/>
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Height="8" Width="260"
+                           Foreground="{DynamicResource AccentBrush}"/>
+              <TextBlock x:Name="ProgressText" Text="0%" Classes="subtle" VerticalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
       </StackPanel>
-    </Grid>
 
+      <!-- Integrations page -->
+      <StackPanel x:Name="IntegrationsPage" Spacing="16" IsVisible="False">
+        <TextBlock Text="Integrations" Classes="h1"/>
+
+        <Border x:Name="WindowsIntegrationPanel" Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Windows" Classes="h2"/>
+            <TextBlock Text="Registers the pekora-player:// link handler so join links from the browser open here."
+                       Classes="subtle" TextWrapping="Wrap"/>
+            <WrapPanel>
+              <Button x:Name="BtnRegisterUri" Content="Register URI Scheme" Classes="secondary" Margin="0,0,8,0"/>
+              <Button x:Name="BtnUnregisterUri" Content="Unregister URI Scheme" Classes="ghost" Margin="0,0,8,0"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="LinuxIntegrationPanel" Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Linux" Classes="h2"/>
+            <TextBlock Text="Experimental — client versions run under Wine. Adds a desktop entry, icon, and link handler."
+                       Classes="subtle" TextWrapping="Wrap"/>
+            <WrapPanel>
+              <Button x:Name="BtnSetupLinuxIntegration" Content="Setup Desktop Integration" Classes="secondary" Margin="0,0,8,0"/>
+              <Button x:Name="BtnRemoveLinuxIntegration" Content="Remove Desktop Integration" Classes="ghost" Margin="0,0,8,0"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Wine (Linux / macOS)" Classes="h2"/>
+            <TextBlock x:Name="WineStatusText" Classes="subtle" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Log page -->
+      <Grid x:Name="LogPage" RowDefinitions="Auto,*,Auto" IsVisible="False">
+        <TextBlock Text="Log" Classes="h1" Margin="0,0,0,14"/>
+        <Border Grid.Row="1" Classes="card" Padding="0">
+          <TextBox x:Name="LogTextBox"
+                   AcceptsReturn="True"
+                   IsReadOnly="True"
+                   TextWrapping="Wrap"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   FontFamily="Consolas,Menlo,monospace"
+                   FontSize="12.5"
+                   Padding="14"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+        </Border>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="6">
+          <Button x:Name="BtnClearLog" Content="Clear log" Classes="ghost"/>
+          <Button x:Name="BtnCopyLog" Content="Copy log" Classes="ghost"/>
+        </StackPanel>
+      </Grid>
+
+      <!-- About page -->
+      <StackPanel x:Name="AboutPage" Spacing="16" IsVisible="False">
+        <TextBlock Text="About" Classes="h1"/>
+
+        <Border Classes="card">
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="56" Height="56"/>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="KSC-Sharp" Classes="h2"/>
+              <TextBlock x:Name="AboutVersionText" Classes="subtle"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Credits" Classes="h2"/>
+            <Button Content="Bloxstrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenBloxstrap_Click"/>
+            <Button Content="koroneStrap  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneStrap_Click"/>
+            <Button Content="Korone Bootstrapper  →" Classes="ghost" HorizontalContentAlignment="Left" Click="OpenKoroneBootstrapper_Click"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Data" Classes="h2"/>
+            <TextBlock Text="Downloaded files and FastFlags live outside the install folder, so an uninstall never leaves game data behind unexpectedly." Classes="subtle" TextWrapping="Wrap"/>
+            <Button x:Name="BtnOpenAppData" Content="Open App Data Folder" Classes="secondary" HorizontalAlignment="Left"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+    </Grid>
   </Grid>
 </Window>

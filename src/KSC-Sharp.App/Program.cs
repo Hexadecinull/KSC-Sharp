@@ -17,8 +17,43 @@ internal static class Program
                 return exitCode;
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        var singleInstanceLock = AcquireSingleInstanceLock();
+        if (singleInstanceLock is null)
+        {
+            Console.Error.WriteLine("[*] KSC-Sharp is already running.");
+            return 0;
+        }
+
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            singleInstanceLock.Dispose();
+        }
+
         return 0;
+    }
+
+    /// <summary>
+    /// Prevents launching a second GUI window (e.g. double-clicking the icon while it's
+    /// already open). Holds an exclusive lock on a file in AppData for the process lifetime;
+    /// the OS releases it automatically on exit, including a crash. Headless flows
+    /// (--uri/--install/--uninstall) intentionally skip this - they're fire-and-forget and
+    /// shouldn't be blocked by an already-open GUI instance.
+    /// </summary>
+    private static FileStream? AcquireSingleInstanceLock()
+    {
+        var lockPath = Path.Combine(KoroneConfig.AppDataDirectory, ".instance.lock");
+        try
+        {
+            return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
@@ -112,7 +147,7 @@ internal static class Program
         {
             var launcherCommand = ResolveLauncherCommand();
             LinuxIntegration.CreateDesktopEntry(launcherCommand);
-            LinuxIntegration.DownloadIconAsync().GetAwaiter().GetResult();
+            LinuxIntegration.InstallIcon();
             LinuxIntegration.RegisterMimeHandler();
             Console.WriteLine("[*] Linux integration setup complete!");
             return 0;
@@ -135,6 +170,7 @@ internal static class Program
         {
             LinuxIntegration.UninstallIntegration();
             Console.WriteLine("[*] Linux integration uninstalled!");
+            PurgeAppData();
             return 0;
         }
 
@@ -142,11 +178,36 @@ internal static class Program
         {
             var (success, message) = WindowsUriRegistration.Unregister();
             Console.WriteLine(success ? $"[*] {message}" : $"[!] {message}");
+            PurgeAppData();
             return success ? 0 : 1;
         }
 
         Console.WriteLine("[!] --uninstall has no effect on this platform yet.");
+        PurgeAppData();
         return 0;
+    }
+
+    /// <summary>
+    /// Removes the downloaded bootstrapper and local FastFlags cache. Called by --uninstall
+    /// (and wired into the Inno Setup [UninstallRun] step) so removing the app doesn't leave
+    /// files behind in the per-user data directory - the app's own install folder never held
+    /// this data in the first place (see KoroneConfig.AppDataDirectory).
+    /// </summary>
+    private static void PurgeAppData()
+    {
+        try
+        {
+            var dir = KoroneConfig.AppDataDirectory;
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, recursive: true);
+                Console.WriteLine($"[*] Removed {dir}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[!] Could not fully remove app data: {ex.Message}");
+        }
     }
 
     private static string ResolveLauncherCommand()

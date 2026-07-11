@@ -21,7 +21,7 @@ public class FastFlagsManager
 
     public FastFlagsManager(string? flagsFile = null)
     {
-        _flagsFile = flagsFile ?? KoroneConfig.FastFlagsFileName;
+        _flagsFile = flagsFile ?? Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.FastFlagsFileName);
     }
 
     /// <summary>Loads the local editing cache. Creates an empty one if missing.</summary>

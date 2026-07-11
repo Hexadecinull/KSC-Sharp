@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http;
 
 namespace KSCSharp.Core.Platform;
 
@@ -51,21 +50,19 @@ public static class LinuxIntegration
         RunBestEffort("xdg-mime", $"default {Path.GetFileName(EntryFile)} x-scheme-handler/{KoroneConfig.UriScheme}");
     }
 
-    public static async Task DownloadIconAsync(HttpClient? httpClient = null)
+    /// <summary>Writes the bundled app icon to the Linux icon theme directory. No network access needed.</summary>
+    public static void InstallIcon()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(IconPath)!);
 
-        var http = httpClient ?? new HttpClient();
-        try
-        {
-            var data = await http.GetByteArrayAsync(KoroneConfig.LinuxIconUrl);
-            await File.WriteAllBytesAsync(IconPath, data);
-        }
-        finally
-        {
-            if (httpClient is null)
-                http.Dispose();
-        }
+        using var resourceStream = typeof(LinuxIntegration).Assembly
+            .GetManifestResourceStream("KSCSharp.Core.Assets.icon.png");
+
+        if (resourceStream is null)
+            throw new InvalidOperationException("Bundled icon resource not found.");
+
+        using var fileStream = new FileStream(IconPath, FileMode.Create, FileAccess.Write);
+        resourceStream.CopyTo(fileStream);
     }
 
     public static void UninstallIntegration()

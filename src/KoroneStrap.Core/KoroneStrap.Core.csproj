@@ -8,4 +8,8 @@
     <RootNamespace>KSCSharp.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\icon.png" LogicalName="KSCSharp.Core.Assets.icon.png" />
+  </ItemGroup>
+
 </Project>

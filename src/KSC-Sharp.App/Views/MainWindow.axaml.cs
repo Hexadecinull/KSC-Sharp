@@ -1,11 +1,15 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using KSCSharp.Core;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +18,8 @@ namespace KSCSharp.App.Views;
 public partial class MainWindow : Window
 {
     private readonly FastFlagsManager _flagsManager = new();
+    private Button[] _navButtons = Array.Empty<Button>();
+    private Control[] _pages = Array.Empty<Control>();
 
     public MainWindow()
     {
@@ -21,7 +27,12 @@ public partial class MainWindow : Window
 
         SubtitleText.Text = $"{KoroneConfig.ProductName} launcher — running on {DescribePlatform()}";
 
+        var version = GetDisplayVersion();
+        SidebarVersionText.Text = version;
+        AboutVersionText.Text = $"Version {version}";
+
         BuildVersionButtons();
+        WireNav();
 
         BtnFastFlags.Click += BtnFastFlags_Click;
         BtnDownloadBootstrapper.Click += BtnDownloadBootstrapper_Click;
@@ -32,6 +43,7 @@ public partial class MainWindow : Window
         BtnRemoveLinuxIntegration.Click += BtnRemoveLinuxIntegration_Click;
         BtnClearLog.Click += (_, _) => LogTextBox.Text = string.Empty;
         BtnCopyLog.Click += (_, _) => CopyLogToClipboard();
+        BtnOpenAppData.Click += (_, _) => OpenPath(KoroneConfig.AppDataDirectory);
 
         WindowsIntegrationPanel.IsVisible = OperatingSystem.IsWindows();
         LinuxIntegrationPanel.IsVisible = OperatingSystem.IsLinux();
@@ -39,9 +51,16 @@ public partial class MainWindow : Window
         if (SystemInfo.RequiresWine)
         {
             var wine = ProcessLauncher.ResolveWineCommand();
+            WineStatusText.Text = wine is null
+                ? "Wine was not found. Client versions won't launch until wine64/wine is installed and reachable."
+                : $"Using: {wine}";
             AppendLog(wine is null
-                ? "[!] Wine was not found on PATH. Client versions won't launch until it's installed."
+                ? "[!] Wine was not found. Client versions won't launch until it's installed."
                 : $"[*] Using {wine} to run Windows clients.");
+        }
+        else
+        {
+            WineStatusText.Text = "Not needed on this platform.";
         }
     }
 
@@ -53,14 +72,68 @@ public partial class MainWindow : Window
         return SystemInfo.SystemName;
     }
 
+    private static string GetDisplayVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version is null ? "dev" : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    // ----- Navigation -----
+
+    private void WireNav()
+    {
+        _navButtons = new[] { NavLaunch, NavIntegrations, NavLog, NavAbout };
+        _pages = new Control[] { LaunchPage, IntegrationsPage, LogPage, AboutPage };
+
+        NavLaunch.Click += (_, _) => ShowPage(0);
+        NavIntegrations.Click += (_, _) => ShowPage(1);
+        NavLog.Click += (_, _) => ShowPage(2);
+        NavAbout.Click += (_, _) => ShowPage(3);
+    }
+
+    private void ShowPage(int index)
+    {
+        for (var i = 0; i < _pages.Length; i++)
+        {
+            _pages[i].IsVisible = i == index;
+
+            if (i == index)
+                _navButtons[i].Classes.Add("selected");
+            else
+                _navButtons[i].Classes.Remove("selected");
+        }
+    }
+
+    // ----- Launch page -----
+
     private void BuildVersionButtons()
     {
         foreach (var version in KoroneConfig.ClientVersions)
         {
+            var label = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            label.Children.Add(new TextBlock
+            {
+                Text = version.DisplayName,
+                FontWeight = FontWeight.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+
+            if (version.Experimental)
+            {
+                label.Children.Add(new TextBlock
+                {
+                    Text = "EXPERIMENTAL",
+                    Classes = { "badge" },
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                });
+            }
+
             var button = new Button
             {
-                Content = version.Available ? version.DisplayName : $"{version.DisplayName} (WIP)",
-                Margin = new Avalonia.Thickness(0, 0, 8, 0),
+                Content = label,
+                Classes = { "versiontile" },
+                Margin = new Avalonia.Thickness(0, 0, 10, 10),
+                Width = 120,
                 IsEnabled = version.Available,
             };
 
@@ -92,6 +165,7 @@ public partial class MainWindow : Window
                 AppendLog("[-] Executable not found. Searched:");
                 foreach (var p in VersionLocator.GetExecutablePaths(version.FolderName))
                     AppendLog($"    - {p}");
+                ShowPage(2);
                 return;
             }
 
@@ -101,10 +175,12 @@ public partial class MainWindow : Window
         catch (ProcessLaunchException ex)
         {
             AppendLog($"[!] {ex.Message}");
+            ShowPage(2);
         }
         catch (Exception ex)
         {
             AppendLog($"[!] Launch failed: {ex.Message}");
+            ShowPage(2);
         }
     }
 
@@ -157,16 +233,16 @@ public partial class MainWindow : Window
             AppendLog($"[!] Download error: {ex.Message}");
         }
 
-        AppendLog(ok ? "[*] Download finished." : "[!] Download failed.");
+        AppendLog(ok ? $"[*] Download finished ({downloader.OutputFile})." : "[!] Download failed.");
         SetProgress(0);
     }
 
     private void BtnLaunchBootstrapper_Click(object? sender, RoutedEventArgs e)
     {
-        var path = KoroneConfig.BootstrapperFileName;
+        var path = System.IO.Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.BootstrapperFileName);
         if (!System.IO.File.Exists(path))
         {
-            AppendLog($"[!] {path} not found — download it first.");
+            AppendLog($"[!] {KoroneConfig.BootstrapperFileName} not found — download it first.");
             return;
         }
 
@@ -181,6 +257,8 @@ public partial class MainWindow : Window
         }
     }
 
+    // ----- Integrations page -----
+
     private async void BtnSetupLinuxIntegration_Click(object? sender, RoutedEventArgs e)
     {
         try
@@ -189,10 +267,10 @@ public partial class MainWindow : Window
             LinuxIntegration.CreateDesktopEntry(exePath);
             AppendLog("[*] Desktop entry created.");
 
-            await LinuxIntegration.DownloadIconAsync();
+            LinuxIntegration.InstallIcon();
             AppendLog("[*] Icon installed.");
 
-            LinuxIntegration.RegisterMimeHandler();
+            await Task.Run(LinuxIntegration.RegisterMimeHandler);
             AppendLog("[*] MIME handler registered.");
         }
         catch (Exception ex)
@@ -213,6 +291,44 @@ public partial class MainWindow : Window
             AppendLog($"[!] Failed to remove integration: {ex.Message}");
         }
     }
+
+    // ----- About page -----
+
+    private void OpenBloxstrap_Click(object? sender, RoutedEventArgs e) =>
+        OpenUrl("https://github.com/bloxstraplabs/bloxstrap");
+
+    private void OpenKoroneStrap_Click(object? sender, RoutedEventArgs e) =>
+        OpenUrl("https://github.com/LittleBigDevs/koroneStrap");
+
+    private void OpenKoroneBootstrapper_Click(object? sender, RoutedEventArgs e) =>
+        OpenUrl("https://github.com/KoroneX/Korone-Bootstrapper");
+
+    private void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[!] Couldn't open {url}: {ex.Message}");
+        }
+    }
+
+    private void OpenPath(string path)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[!] Couldn't open {path}: {ex.Message}");
+        }
+    }
+
+    // ----- Shared helpers -----
 
     private void LogResult((bool Success, string Message) result) =>
         AppendLog(result.Success ? $"[*] {result.Message}" : $"[!] {result.Message}");

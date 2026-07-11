@@ -73,7 +73,17 @@ public static class ProcessLauncher
         }
     }
 
-    /// <summary>Returns "wine64" or "wine" (preferring wine64), or null if neither is on PATH.</summary>
+    /// <summary>
+    /// Returns a runnable path to wine64/wine, or null if none can be found.
+    ///
+    /// This checks PATH first, then falls back to probing common install locations directly.
+    /// That fallback matters more than it sounds: GUI apps on macOS (and Linux desktop-entry
+    /// launches, to a lesser extent) don't inherit the full interactive-shell PATH, so
+    /// Homebrew's /opt/homebrew/bin, MacPorts' /opt/local/bin, or CrossOver's bundled Wine
+    /// are often invisible to a double-clicked app even though `which wine` works fine in
+    /// Terminal. This is one of the more common reasons "Wine isn't found" on macOS even when
+    /// it's actually installed.
+    /// </summary>
     public static string? ResolveWineCommand()
     {
         foreach (var candidate in new[] { "wine64", "wine" })
@@ -82,7 +92,44 @@ public static class ProcessLauncher
                 return candidate;
         }
 
+        foreach (var path in CandidateWinePaths())
+        {
+            if (File.Exists(path))
+                return path;
+        }
+
         return null;
+    }
+
+    private static IEnumerable<string> CandidateWinePaths()
+    {
+        var names = new[] { "wine64", "wine" };
+        var directories = new List<string>();
+
+        if (SystemInfo.IsMacOS)
+        {
+            directories.AddRange(new[]
+            {
+                "/opt/homebrew/bin",                                                       // Homebrew, Apple Silicon
+                "/usr/local/bin",                                                           // Homebrew, Intel
+                "/opt/local/bin",                                                           // MacPorts
+                "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin",         // CrossOver
+            });
+        }
+        else if (SystemInfo.IsLinux)
+        {
+            directories.AddRange(new[]
+            {
+                "/usr/bin",
+                "/usr/local/bin",
+                "/var/lib/flatpak/exports/bin",                                             // Flatpak (system)
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "flatpak", "exports", "bin"),
+            });
+        }
+
+        foreach (var dir in directories)
+            foreach (var name in names)
+                yield return Path.Combine(dir, name);
     }
 
     private static bool IsCommandAvailable(string command)

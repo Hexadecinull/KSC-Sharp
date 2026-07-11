@@ -1,0 +1,59 @@
+name: Installer Build
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Installer version (e.g. 0.1.0). Leave blank for a dev build.'
+        required: false
+        type: string
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "0.0.0-dev." + "${{ github.sha }}".Substring(0, 7)
+          }
+          echo "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore KSC-Sharp.sln
+
+      - name: Publish app
+        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r win-x64 --self-contained false -o dist/win
+
+      # windows-latest's underlying image doesn't ship Inno Setup by default (it was present
+      # on the older Windows 2022 runner image, but was dropped from the Windows 2025 image) -
+      # so installing it explicitly here, rather than assuming ISCC.exe is already on PATH.
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.value }} installer\Inno\installer.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: KSC-Sharp-Setup-win-x64
+          path: installer/Inno/Output/*.exe
+          if-no-files-found: error
+          retention-days: 14

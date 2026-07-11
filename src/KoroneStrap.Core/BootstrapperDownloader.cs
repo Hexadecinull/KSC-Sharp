@@ -11,7 +11,7 @@ public class BootstrapperDownloader
     public BootstrapperDownloader(string? url = null, string? outputFile = null)
     {
         Url = url ?? KoroneConfig.BootstrapperUrl;
-        OutputFile = outputFile ?? KoroneConfig.BootstrapperFileName;
+        OutputFile = outputFile ?? Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.BootstrapperFileName);
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");

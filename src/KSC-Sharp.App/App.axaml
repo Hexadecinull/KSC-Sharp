@@ -5,4 +5,152 @@
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
+
+  <Application.Resources>
+    <!--
+      Palette sampled directly from KSCSL.png (the project logo) rather than picked
+      arbitrarily, so the UI reads as the same brand as the icon:
+        #292551 - ink (the logo's outline)
+        #6459A6 - accent (the logo's mid-purple gradient stop)
+        #DDD2F9 - accent-light (the logo's lavender highlight)
+    -->
+    <SolidColorBrush x:Key="InkBrush" Color="#292551"/>
+    <SolidColorBrush x:Key="InkSoftBrush" Color="#3A3468"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#6459A6"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#584E92"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#4B4280"/>
+    <SolidColorBrush x:Key="AccentLightBrush" Color="#DDD2F9"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F6F4FC"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E7E2F5"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#221E3D"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#726C93"/>
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#2E9E5B"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#B8862E"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="#C4483F"/>
+    <SolidColorBrush x:Key="NavHoverBrush" Color="#3A3468"/>
+    <SolidColorBrush x:Key="NavSelectedBrush" Color="#6459A6"/>
+  </Application.Resources>
+
+  <Application.Styles>
+    <!-- Primary action button: solid accent fill -->
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="16,10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+    </Style>
+    <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="#C9C2E0"/>
+    </Style>
+
+    <!-- Secondary button: outline style -->
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentLightBrush}"/>
+    </Style>
+
+    <!-- Ghost/quiet button, for less prominent actions like "Clear log" -->
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+    </Style>
+
+    <!-- Sidebar navigation item -->
+    <Style Selector="Button.navitem">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#C9C4E8"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="14,10"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,2"/>
+    </Style>
+    <Style Selector="Button.navitem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource NavHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.navitem.selected">
+      <Setter Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.navitem.selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
+    </Style>
+
+    <!-- Card container -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="18"/>
+    </Style>
+
+    <!-- Version launch tile -->
+    <Style Selector="Button.versiontile">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="18,16"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.versiontile:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentLightBrush}"/>
+    </Style>
+    <Style Selector="Button.versiontile:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+      <Setter Property="Opacity" Value="0.65"/>
+    </Style>
+
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="24"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.subtle">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="FontSize" Value="12.5"/>
+    </Style>
+    <Style Selector="TextBlock.badge">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+  </Application.Styles>
 </Application>
