@@ -133,6 +133,21 @@
       <Setter Property="Opacity" Value="0.65"/>
     </Style>
 
+    <!-- Clickable settings row (icon + title/subtitle + chevron), e.g. "Fast Flag Editor" -->
+    <Style Selector="Button.settingsrow">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.settingsrow:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentLightBrush}"/>
+    </Style>
+
     <Style Selector="TextBlock.h1">
       <Setter Property="FontSize" Value="24"/>
       <Setter Property="FontWeight" Value="Bold"/>

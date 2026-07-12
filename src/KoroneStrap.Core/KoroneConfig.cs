@@ -4,7 +4,7 @@ namespace KSCSharp.Core;
 
 /// <summary>
 /// Every product-specific constant (branding, URLs, file/folder names) lives here.
-/// koroneStrap (the upstream Python project) changes these fairly often — when it does,
+/// koroneStrap (the upstream Python project) changes these fairly often – when it does,
 /// this should be the only file that needs touching.
 /// </summary>
 public static class KoroneConfig
@@ -36,17 +36,14 @@ public static class KoroneConfig
     /// <summary>
     /// Legacy client years selectable from the UI. All four go through the exact same
     /// VersionLocator/ProcessLauncher/FastFlagsManager path - there's no separate launch
-    /// mechanism for older years. 2017/2018 are marked Experimental rather than hidden:
-    /// upstream koroneStrap has never verified them (its menu just printed "Work in
-    /// Progress" without attempting a launch), and being much older DirectX 9-era Roblox
-    /// builds, they're more likely to hit their own rendering quirks - especially under
-    /// Wine on Linux/macOS. That's a real caveat worth surfacing, not a technical gap in
-    /// this codebase.
+    /// mechanism for older years, so there's nothing year-specific to "fix" in this codebase.
+    /// Runtime reliability of any given build (especially older DirectX 9-era clients under
+    /// Wine) is outside what this launcher controls.
     /// </summary>
     public static readonly IReadOnlyList<ClientVersion> ClientVersions = new[]
     {
-        new ClientVersion("2017", "2017L", Available: true, Experimental: true),
-        new ClientVersion("2018", "2018",  Available: true, Experimental: true),
+        new ClientVersion("2017", "2017L", Available: true),
+        new ClientVersion("2018", "2018",  Available: true),
         new ClientVersion("2020", "2020L", Available: true),
         new ClientVersion("2021", "2021M", Available: true),
     };

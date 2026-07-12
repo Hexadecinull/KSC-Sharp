@@ -4,7 +4,7 @@
         Icon="avares://KSC-Sharp.App/Assets/icon.png"
         Title="FastFlags"
         Width="580" Height="500"
-        MinWidth="440" MinHeight="380"
+        MinWidth="580" MinHeight="500"
         CanResize="True"
         Background="{DynamicResource SurfaceBrush}">
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">

@@ -2,13 +2,23 @@ using System.Text.Json;
 
 namespace KSCSharp.Core;
 
-/// <summary>Persisted app preferences - currently just the Discord Rich Presence toggles.</summary>
+/// <summary>Persisted app preferences, written to settings.json in AppDataDirectory.</summary>
 public class AppSettings
 {
+    // Discord Rich Presence. Everything here defaults to the least-surprising state: off,
+    // and the plainest display mode when it is turned on.
     public bool DiscordEnabled { get; set; }
-    public bool DiscordShowDetails { get; set; } = true;
-    public bool DiscordAllowJoining { get; set; } = true;
+    public bool DiscordShowDetails { get; set; }
+    public bool DiscordAllowJoining { get; set; }
     public bool DiscordShowAccount { get; set; }
+
+    // Integrations
+    public bool QueryServerDetailsEnabled { get; set; }
+    public bool WindowManipulationEnabled { get; set; }
+
+    // FastFlags - the management toggle defaults to true (opt-out, not opt-in), since
+    // disabling it is meant to be an explicit "stop touching my client" switch.
+    public bool FastFlagsManagementEnabled { get; set; } = true;
 
     private static string DefaultPath => Path.Combine(KoroneConfig.AppDataDirectory, "settings.json");
 

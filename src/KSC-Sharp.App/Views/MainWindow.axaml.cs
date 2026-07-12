@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using KSCSharp.Core;
+using KSCSharp.Core.Diagnostics;
 using KSCSharp.Core.Discord;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
@@ -27,7 +28,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        SubtitleText.Text = $"{KoroneConfig.ProductName} launcher — running on {DescribePlatform()}";
+        SubtitleText.Text = $"{KoroneConfig.ProductName} launcher – running on {DescribePlatform()}";
 
         var version = GetDisplayVersion();
         SidebarVersionText.Text = version;
@@ -36,8 +37,11 @@ public partial class MainWindow : Window
         BuildVersionButtons();
         WireNav();
         WireDiscord();
+        WireFastFlagsPage();
+        WireActivityTracking();
+        WireWindowManipulation();
 
-        BtnFastFlags.Click += BtnFastFlags_Click;
+        BtnFastFlags.Click += (_, _) => ShowPage(2);
         BtnDownloadBootstrapper.Click += BtnDownloadBootstrapper_Click;
         BtnLaunchBootstrapper.Click += BtnLaunchBootstrapper_Click;
         BtnRegisterUri.Click += (_, _) => LogResult(WindowsUriRegistration.Register());
@@ -96,12 +100,12 @@ public partial class MainWindow : Window
 
     private void WireNav()
     {
-        _navButtons = new[] { NavLaunch, NavIntegrations, NavDiscord, NavLog, NavAbout };
-        _pages = new Control[] { LaunchPage, IntegrationsPage, DiscordPage, LogPage, AboutPage };
+        _navButtons = new[] { NavLaunch, NavIntegrations, NavFastFlags, NavLog, NavAbout };
+        _pages = new Control[] { LaunchPage, IntegrationsPage, FastFlagsPage, LogPage, AboutPage };
 
         NavLaunch.Click += (_, _) => ShowPage(0);
         NavIntegrations.Click += (_, _) => ShowPage(1);
-        NavDiscord.Click += (_, _) => ShowPage(2);
+        NavFastFlags.Click += (_, _) => ShowPage(2);
         NavLog.Click += (_, _) => ShowPage(3);
         NavAbout.Click += (_, _) => ShowPage(4);
     }
@@ -125,36 +129,16 @@ public partial class MainWindow : Window
     {
         foreach (var version in KoroneConfig.ClientVersions)
         {
-            var label = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
-            label.Children.Add(new TextBlock
-            {
-                Text = version.DisplayName,
-                FontWeight = FontWeight.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            });
-
-            if (version.Experimental)
-            {
-                label.Children.Add(new TextBlock
-                {
-                    Text = "EXPERIMENTAL",
-                    Classes = { "badge" },
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                });
-            }
-
             var button = new Button
             {
-                Content = label,
+                Content = version.DisplayName,
                 Classes = { "versiontile" },
                 Margin = new Avalonia.Thickness(0, 0, 10, 10),
                 Width = 120,
                 IsEnabled = version.Available,
             };
 
-            ToolTip.SetTip(button, version.Experimental
-                ? $"{version.DisplayName}: not verified upstream, more likely to hit rendering quirks (especially under Wine)."
-                : $"Launch the {version.DisplayName} client.");
+            ToolTip.SetTip(button, $"Launch the {version.DisplayName} client.");
 
             if (version.Available)
                 button.Click += (_, _) => LaunchVersion(version);
@@ -193,6 +177,17 @@ public partial class MainWindow : Window
 
             UpdateDiscordActivity(version);
             HookProcessExitForDiscord(process);
+
+            if (_settings.WindowManipulationEnabled && WindowManipulator.IsSupported)
+            {
+                _ = Task.Run(() =>
+                {
+                    var handle = WindowManipulator.FindMainWindowHandle(process.Id);
+                    AppendLog(handle is null
+                        ? "[!] Window manipulation: couldn't find the client's window handle."
+                        : $"[*] Window manipulation: found window handle for {version.DisplayName}.");
+                });
+            }
         }
         catch (ProcessLaunchException ex)
         {
@@ -221,29 +216,6 @@ public partial class MainWindow : Window
         {
             // Wine-wrapped processes can behave oddly here on some distros - not fatal,
             // presence just won't auto-clear when the game closes.
-        }
-    }
-
-    private async void BtnFastFlags_Click(object? sender, RoutedEventArgs e)
-    {
-        var dialog = new FastFlagsWindow(_flagsManager.Load());
-        var result = await dialog.ShowDialog<FastFlagsWindow.Result?>(this);
-
-        if (result is null)
-        {
-            AppendLog("[*] FastFlags dialog closed without saving.");
-            return;
-        }
-
-        _flagsManager.Save(result.Flags);
-        AppendLog($"[*] FastFlags saved locally ({result.Flags.Count}).");
-
-        if (result.ApplyNow)
-        {
-            var applyResult = _flagsManager.ApplyToInstalledClients(result.Flags);
-            AppendLog($"[*] Applied to {applyResult.TargetsWritten} install(s).");
-            foreach (var failure in applyResult.Failures)
-                AppendLog($"[!] {failure}");
         }
     }
 
@@ -284,7 +256,7 @@ public partial class MainWindow : Window
         var path = System.IO.Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.BootstrapperFileName);
         if (!System.IO.File.Exists(path))
         {
-            AppendLog($"[!] {KoroneConfig.BootstrapperFileName} not found — download it first.");
+            AppendLog($"[!] {KoroneConfig.BootstrapperFileName} not found – download it first.");
             return;
         }
 
@@ -303,11 +275,11 @@ public partial class MainWindow : Window
     {
         var path = System.IO.Path.Combine(KoroneConfig.AppDataDirectory, KoroneConfig.BootstrapperFileName);
         BootstrapperStatusText.Text = System.IO.File.Exists(path)
-            ? $"Downloaded — last updated {System.IO.File.GetLastWriteTime(path):yyyy-MM-dd HH:mm}."
+            ? $"Downloaded – last updated {System.IO.File.GetLastWriteTime(path):yyyy-MM-dd HH:mm}."
             : "Not downloaded yet.";
     }
 
-    // ----- Integrations page -----
+    // ----- Integrations: Windows / Linux -----
 
     private async void BtnSetupLinuxIntegration_Click(object? sender, RoutedEventArgs e)
     {
@@ -342,7 +314,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // ----- Discord page -----
+    // ----- Integrations: Discord Rich Presence -----
 
     private void WireDiscord()
     {
@@ -425,6 +397,94 @@ public partial class MainWindow : Window
 
         var ok = _discord.SetActivity(activity);
         AppendLog(ok ? "[*] Discord activity updated." : "[!] Discord activity update failed.");
+    }
+
+    // ----- Integrations: Activity tracking -----
+
+    private void WireActivityTracking()
+    {
+        ToggleQueryServerDetails.IsChecked = _settings.QueryServerDetailsEnabled;
+        ToggleQueryServerDetails.Click += (_, _) =>
+        {
+            _settings.QueryServerDetailsEnabled = ToggleQueryServerDetails.IsChecked == true;
+            _settings.Save();
+        };
+
+        BtnCheckServer.Click += BtnCheckServer_Click;
+    }
+
+    private async void BtnCheckServer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settings.QueryServerDetailsEnabled)
+        {
+            ServerDetailsText.Text = "Turn on \"Query server details\" first.";
+            return;
+        }
+
+        ServerDetailsText.Text = "Checking...";
+        var location = await ServerLocator.QueryCurrentServerAsync();
+
+        ServerDetailsText.Text = location is null
+            ? "Couldn't determine your server (no client log found, or it's not in a game yet)."
+            : $"{location.Ip} – {location.City}, {location.Region}, {location.Country} ({location.Isp})";
+    }
+
+    // ----- Integrations: Window manipulation -----
+
+    private void WireWindowManipulation()
+    {
+        ToggleWindowManipulation.IsChecked = _settings.WindowManipulationEnabled;
+        ToggleWindowManipulation.Click += (_, _) =>
+        {
+            _settings.WindowManipulationEnabled = ToggleWindowManipulation.IsChecked == true;
+            _settings.Save();
+
+            if (_settings.WindowManipulationEnabled && !WindowManipulator.IsSupported)
+                AppendLog("[!] Window manipulation is only implemented on Windows so far.");
+        };
+    }
+
+    // ----- FastFlags page -----
+
+    private void WireFastFlagsPage()
+    {
+        ToggleFastFlagsManagement.IsChecked = _settings.FastFlagsManagementEnabled;
+        ToggleFastFlagsManagement.Click += (_, _) =>
+        {
+            _settings.FastFlagsManagementEnabled = ToggleFastFlagsManagement.IsChecked == true;
+            _settings.Save();
+        };
+
+        BtnResetFastFlags.Click += (_, _) =>
+        {
+            var result = _flagsManager.ResetAll();
+            AppendLog($"[*] FastFlags reset. Applied to {result.TargetsWritten} install(s).");
+            foreach (var failure in result.Failures)
+                AppendLog($"[!] {failure}");
+        };
+    }
+
+    private async void OpenFastFlagEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new FastFlagsWindow(_flagsManager.Load());
+        var result = await dialog.ShowDialog<FastFlagsWindow.Result?>(this);
+
+        if (result is null)
+        {
+            AppendLog("[*] FastFlags dialog closed without saving.");
+            return;
+        }
+
+        _flagsManager.Save(result.Flags);
+        AppendLog($"[*] FastFlags saved locally ({result.Flags.Count}).");
+
+        if (result.ApplyNow)
+        {
+            var applyResult = _flagsManager.ApplyToInstalledClients(result.Flags);
+            AppendLog($"[*] Applied to {applyResult.TargetsWritten} install(s).");
+            foreach (var failure in applyResult.Failures)
+                AppendLog($"[!] {failure}");
+        }
     }
 
     // ----- About page -----

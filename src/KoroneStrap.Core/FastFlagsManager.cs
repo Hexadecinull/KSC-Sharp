@@ -63,9 +63,17 @@ public class FastFlagsManager
     /// <summary>
     /// Writes <paramref name="flags"/> into every installed client's ClientAppSettings.json,
     /// backing up any existing file first. This is what actually makes FastFlags take effect.
+    ///
+    /// Respects AppSettings.FastFlagsManagementEnabled - if the user has turned off "Allow
+    /// KSC-Sharp to manage Fast Flags", this is a no-op regardless of what called it. That
+    /// check lives here (not just in the UI) so it's enforced everywhere, including the
+    /// headless --uri launch path in Program.cs.
     /// </summary>
     public ApplyResult ApplyToInstalledClients(Dictionary<string, object> flags)
     {
+        if (!AppSettings.Load().FastFlagsManagementEnabled)
+            return new ApplyResult(0, new[] { "FastFlags management is disabled (Integrations > FastFlags)." });
+
         var failures = new List<string>();
         var written = 0;
 
@@ -92,6 +100,17 @@ public class FastFlagsManager
         }
 
         return new ApplyResult(written, failures);
+    }
+
+    /// <summary>
+    /// Clears the local FastFlags cache and, if management is enabled, writes an empty flags
+    /// object into every installed client too - a real reset, not just forgetting what was
+    /// configured locally while leaving old flags active in the client.
+    /// </summary>
+    public ApplyResult ResetAll()
+    {
+        Save(new Dictionary<string, object>());
+        return ApplyToInstalledClients(new Dictionary<string, object>());
     }
 
     /// <summary>Reads back whatever is currently written into installed clients, for diagnostics.</summary>
