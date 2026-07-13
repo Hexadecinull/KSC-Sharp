@@ -2,23 +2,39 @@ using System.Text.Json;
 
 namespace KSCSharp.Core;
 
+public enum GraphicsApi
+{
+    Direct3D,
+    OpenGL,
+    Vulkan,
+}
+
 /// <summary>Persisted app preferences, written to settings.json in AppDataDirectory.</summary>
 public class AppSettings
 {
+    // Activity tracking - gates both "Query server details" and (descriptively) Discord's
+    // richer detail mode.
+    public bool ActivityTrackingEnabled { get; set; }
+    public bool QueryServerDetailsEnabled { get; set; }
+
     // Discord Rich Presence. Everything here defaults to the least-surprising state: off,
     // and the plainest display mode when it is turned on.
     public bool DiscordEnabled { get; set; }
+    public bool DiscordShowActivity { get; set; }
     public bool DiscordShowDetails { get; set; }
     public bool DiscordAllowJoining { get; set; }
     public bool DiscordShowAccount { get; set; }
 
-    // Integrations
-    public bool QueryServerDetailsEnabled { get; set; }
+    // Custom Integrations
     public bool WindowManipulationEnabled { get; set; }
 
     // FastFlags - the management toggle defaults to true (opt-out, not opt-in), since
     // disabling it is meant to be an explicit "stop touching my client" switch.
     public bool FastFlagsManagementEnabled { get; set; } = true;
+
+    // Global Settings > Presets > Rendering and Graphics
+    public GraphicsApi GraphicsApi { get; set; } = GraphicsApi.Direct3D;
+    public int FramerateLimit { get; set; } = 60;
 
     private static string DefaultPath => Path.Combine(KoroneConfig.AppDataDirectory, "settings.json");
 

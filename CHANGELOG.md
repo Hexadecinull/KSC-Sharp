@@ -2,6 +2,27 @@
 
 Development history of this rewrite. For end-user documentation, see [README.md](./README.md).
 
+## 1.2.0
+
+### Added
+- **Global Settings** tab (between FastFlags and Log): Presets → Rendering and Graphics, with **Current Graphics API** (Direct3D/OpenGL/Vulkan, marked Experimental) and **Framerate Limit** (default 60). Both are implemented as real, externally-verified Roblox-engine FastFlags (`FFlagDebugGraphicsPreferD3D11`/`OpenGL`/`Vulkan`, `DFIntTaskSchedulerTargetFps`) merged into whatever's applied on launch - no injection needed.
+- **Activity Tracking** is now its own Integrations sub-category (first, ahead of Discord Rich Presence): a new **Enable activity tracking** master toggle gates **Query server details**, which moved under it.
+- **Discord Rich Presence** is now its own labeled sub-category with a description, and gets back a **Show game activity** toggle (between the master switch and status display) - separate from the master toggle, so you can stay connected to Discord without publishing what you're playing.
+- **Custom Integrations** sub-category at the bottom of Integrations, holding the Windows/Linux/Wine link-handler features that used to be spread across the page.
+- **URI Scheme confirmation text** - "URI Scheme registered."/"URI Scheme unregistered." now shows inline next to the buttons, not just in the Log tab.
+- **Sidebar search** - a search box the same width as the sidebar, with live results that jump straight to the relevant tab.
+- Real vector icons (GitHub mark, alert triangle) for the About page's Source Code / Report an Issue buttons, replacing the emoji placeholders from last round - sourced from the public octicon path data, cross-checked against multiple independent sources.
+- `manual-release.yml` rebuilt as four small jobs (validate → build → installer → release) instead of one long script, so a failure partway through doesn't force re-running everything; now also builds and attaches portable zips for all three platforms, not just the Windows installer.
+
+### Changed
+- FastFlags tab reordered: Fast Flag Editor first, "Allow KSC-Sharp to manage Fast Flags" second.
+- FastFlags editor window resized (750×538) to match a screenshot of real overflow - matching `MinWidth`/`MinHeight` to `Width`/`Height` last round wasn't enough on its own if the window needed to open larger in the first place.
+- Version bump policy: from here on, version bumps are sized to the scope of each change list rather than waiting to be told a number.
+- Version bumped to 1.2.0.
+
+### Fixed
+- Toggle/dropdown right-alignment bug: a shared "Auto" grid column sized to the widest control let some toggles drift left of the card's true right edge. Fixed everywhere with explicit `HorizontalAlignment="Right"`.
+
 ## 1.1.0
 
 ### Added

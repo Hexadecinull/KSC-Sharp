@@ -28,6 +28,8 @@ and – unlike either of those – runs natively on Windows, Linux, and macOS fr
 
 - **Launch any client year** – 2017, 2018, 2020, and 2021 builds, all from one window.
 - **FastFlags editor** – add, edit, and apply client-side FastFlags without hand-editing JSON.
+- **Global Settings presets** – switch graphics API (Direct3D/OpenGL/Vulkan, experimental) and
+  unlock the framerate limit, without touching raw FastFlags yourself.
 - **Bootstrapper management** – download/update the official Pekora bootstrapper and run it
   directly from the app.
 - **Link handling** – registers `pekora-player://` so join links from the browser open straight
@@ -36,6 +38,7 @@ and – unlike either of those – runs natively on Windows, Linux, and macOS fr
   granular controls Bloxstrap offers (see [Discord Rich Presence](#discord-rich-presence)).
 - **Server details lookup** – see the rough location of the game server you're currently
   connected to.
+- **Sidebar search** – jump straight to any feature by name instead of hunting through tabs.
 - **Runs on Linux and macOS**, not just Windows, launching the Windows client through Wine.
 - **A real uninstaller** on Windows – removing KSC-Sharp also unregisters the link handler and
   clears everything it downloaded, rather than leaving files behind.
@@ -77,16 +80,29 @@ launch) or *Save & Apply to Installed Clients* (writes them into every installed
 immediately). *Reset everything to defaults* clears both the local cache and whatever's
 currently applied to your installs.
 
-**Integrations** covers everything else: Discord Rich Presence, the `pekora-player://` link
-handler (Windows) and desktop integration (Linux), server details lookup, and window
-manipulation.
+**Integrations** is organized into sub-sections: Activity Tracking, Discord Rich Presence,
+Window Manipulation, and Custom Integrations (the `pekora-player://` link handler on Windows,
+desktop integration on Linux, and Wine status) – roughly in order of "most people will touch
+this" to "advanced/platform-specific." Use the sidebar search if you'd rather jump straight to
+a feature by name than scroll through sections.
+
+**Global Settings** holds engine-level presets – currently Graphics API and Framerate Limit,
+under Presets → Rendering and Graphics.
+
+### Activity Tracking
+
+Found under Integrations, first section. **Enable activity tracking** lets KSC-Sharp detect
+what you're playing, which other features build on – right now that's just **Query server
+details** (see roughly where your current game server is hosted), gated behind this toggle.
 
 ### Discord Rich Presence
 
-Found under Integrations. Off by default. When enabled, KSC-Sharp shows your current activity
-on your Discord profile while a client is running, the same way Bloxstrap does for Roblox:
+Found under Integrations, right after Activity Tracking – it depends on activity tracking being
+on, plus the Discord desktop app installed and running. Off by default:
 
 - **Enable Discord Rich Presence** – the master on/off switch (off by default).
+- **Show game activity** – whether the specific client/details are published once connected,
+  separate from the connection itself (so you can stay "connected" without broadcasting details).
 - **Discord status display** – "Name" shows just that you're playing Korone; "Details" adds
   which client year. Defaults to Name.
 - **Allow activity joining** – lets friends join your game directly from your Discord profile.
@@ -119,6 +135,25 @@ Under Integrations. Lets KSC-Sharp look up the running client's window handle �
 future features (always-on-top, custom title bar, etc.), not a feature in itself yet. Windows
 only for now; Linux (X11/Wayland) and macOS (Cocoa) use entirely different windowing APIs that
 would need separate implementations.
+
+### Global Settings presets
+
+Under Global Settings → Presets → Rendering and Graphics:
+
+- **Current Graphics API** (Experimental) – switch between Direct3D, OpenGL, and Vulkan.
+  This uses real, documented Roblox-engine flags (`FFlagDebugGraphicsPreferD3D11` /
+  `...PreferOpenGL` / `...PreferVulkan`), not injection – Pekora being Roblox-compatible,
+  these very likely work the same way, though that hasn't been confirmed against a real
+  Pekora install. Worth knowing: official Roblox added a server-side allowlist for which
+  FastFlags actually take effect in September 2025; these particular flags are confirmed to
+  be on it, but that's Roblox's own policy, and Pekora – especially the older client years
+  this app supports, which predate that allowlist entirely – may or may not follow it. That
+  uncertainty, not a bug in this app, is why it's marked Experimental.
+- **Framerate Limit** – unlocks the client's FPS cap (`DFIntTaskSchedulerTargetFps`, default
+  60). Going above 240 FPS isn't recommended – Roblox's own engine can behave oddly above
+  that, independent of KSC-Sharp.
+
+Both are applied alongside whatever's in the FastFlags editor whenever you launch a client.
 
 ## Building from source
 

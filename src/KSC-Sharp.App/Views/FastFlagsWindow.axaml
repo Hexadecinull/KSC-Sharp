@@ -3,8 +3,8 @@
         x:Class="KSCSharp.App.Views.FastFlagsWindow"
         Icon="avares://KSC-Sharp.App/Assets/icon.png"
         Title="FastFlags"
-        Width="580" Height="500"
-        MinWidth="580" MinHeight="500"
+        Width="750" Height="538"
+        MinWidth="750" MinHeight="538"
         CanResize="True"
         Background="{DynamicResource SurfaceBrush}">
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">

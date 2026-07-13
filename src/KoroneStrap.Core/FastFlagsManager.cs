@@ -113,6 +113,20 @@ public class FastFlagsManager
         return ApplyToInstalledClients(new Dictionary<string, object>());
     }
 
+    /// <summary>
+    /// The generic FastFlags cache, overlaid with the structured Global Settings > Presets
+    /// (Graphics API, Framerate Limit). This is what should actually be applied to a client -
+    /// the generic editor and the structured presets both end up in the same
+    /// ClientAppSettings.json, since that's the only place either one can take effect.
+    /// </summary>
+    public Dictionary<string, object> BuildEffectiveFlags(AppSettings settings)
+    {
+        var flags = Load();
+        EngineFlags.ApplyGraphicsApi(flags, settings.GraphicsApi);
+        flags[EngineFlags.TaskSchedulerTargetFps] = settings.FramerateLimit;
+        return flags;
+    }
+
     /// <summary>Reads back whatever is currently written into installed clients, for diagnostics.</summary>
     public IReadOnlyList<(string YearFolder, string SettingsFile, Dictionary<string, object>? Flags)> ReadAppliedFlags()
     {

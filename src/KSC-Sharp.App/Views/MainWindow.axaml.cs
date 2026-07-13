@@ -9,7 +9,9 @@ using KSCSharp.Core.Discord;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +25,30 @@ public partial class MainWindow : Window
     private readonly DiscordRpcManager _discord = new();
     private Button[] _navButtons = Array.Empty<Button>();
     private Control[] _pages = Array.Empty<Control>();
+    private List<(string Name, int Page)> _searchMatches = new();
+
+    private static readonly (string Name, int Page)[] SearchIndex =
+    {
+        ("Launch", 0), ("2017", 0), ("2018", 0), ("2020", 0), ("2021", 0),
+        ("Bootstrapper", 0), ("Download / Update", 0), ("Run Bootstrapper", 0),
+
+        ("Integrations", 1),
+        ("Activity Tracking", 1), ("Enable activity tracking", 1), ("Query server details", 1),
+        ("Discord Rich Presence", 1), ("Enable Discord Rich Presence", 1), ("Show game activity", 1),
+        ("Discord status display", 1), ("Allow activity joining", 1), ("Show Pekora account", 1),
+        ("Window Manipulation", 1), ("Enable window manipulation", 1),
+        ("Custom Integrations", 1), ("URI Scheme", 1), ("Windows", 1), ("Linux", 1), ("Wine", 1),
+
+        ("FastFlags", 2), ("Fast Flag Editor", 2), ("Allow KSC-Sharp to manage Fast Flags", 2),
+        ("Reset everything to defaults", 2),
+
+        ("Global Settings", 3), ("Presets", 3), ("Rendering and Graphics", 3),
+        ("Current Graphics API", 3), ("Framerate Limit", 3),
+
+        ("Log", 4),
+
+        ("About", 5), ("Source Code", 5), ("Report an Issue", 5), ("Credits", 5), ("App Data", 5),
+    };
 
     public MainWindow()
     {
@@ -36,16 +62,28 @@ public partial class MainWindow : Window
 
         BuildVersionButtons();
         WireNav();
-        WireDiscord();
-        WireFastFlagsPage();
+        WireSearch();
         WireActivityTracking();
+        WireDiscord();
         WireWindowManipulation();
+        WireFastFlagsPage();
+        WireGlobalSettings();
 
         BtnFastFlags.Click += (_, _) => ShowPage(2);
         BtnDownloadBootstrapper.Click += BtnDownloadBootstrapper_Click;
         BtnLaunchBootstrapper.Click += BtnLaunchBootstrapper_Click;
-        BtnRegisterUri.Click += (_, _) => LogResult(WindowsUriRegistration.Register());
-        BtnUnregisterUri.Click += (_, _) => LogResult(WindowsUriRegistration.Unregister());
+        BtnRegisterUri.Click += (_, _) =>
+        {
+            var result = WindowsUriRegistration.Register();
+            LogResult(result);
+            UriSchemeStatusText.Text = result.Success ? "URI Scheme registered." : result.Message;
+        };
+        BtnUnregisterUri.Click += (_, _) =>
+        {
+            var result = WindowsUriRegistration.Unregister();
+            LogResult(result);
+            UriSchemeStatusText.Text = result.Success ? "URI Scheme unregistered." : result.Message;
+        };
         BtnSetupLinuxIntegration.Click += BtnSetupLinuxIntegration_Click;
         BtnRemoveLinuxIntegration.Click += BtnRemoveLinuxIntegration_Click;
         BtnClearLog.Click += (_, _) => LogTextBox.Text = string.Empty;
@@ -100,14 +138,15 @@ public partial class MainWindow : Window
 
     private void WireNav()
     {
-        _navButtons = new[] { NavLaunch, NavIntegrations, NavFastFlags, NavLog, NavAbout };
-        _pages = new Control[] { LaunchPage, IntegrationsPage, FastFlagsPage, LogPage, AboutPage };
+        _navButtons = new[] { NavLaunch, NavIntegrations, NavFastFlags, NavGlobalSettings, NavLog, NavAbout };
+        _pages = new Control[] { LaunchPage, IntegrationsPage, FastFlagsPage, GlobalSettingsPage, LogPage, AboutPage };
 
         NavLaunch.Click += (_, _) => ShowPage(0);
         NavIntegrations.Click += (_, _) => ShowPage(1);
         NavFastFlags.Click += (_, _) => ShowPage(2);
-        NavLog.Click += (_, _) => ShowPage(3);
-        NavAbout.Click += (_, _) => ShowPage(4);
+        NavGlobalSettings.Click += (_, _) => ShowPage(3);
+        NavLog.Click += (_, _) => ShowPage(4);
+        NavAbout.Click += (_, _) => ShowPage(5);
     }
 
     private void ShowPage(int index)
@@ -121,6 +160,44 @@ public partial class MainWindow : Window
             else
                 _navButtons[i].Classes.Remove("selected");
         }
+    }
+
+    // ----- Sidebar search -----
+
+    private void WireSearch()
+    {
+        SearchBox.TextChanged += (_, _) => UpdateSearchResults(SearchBox.Text ?? "");
+
+        SearchResultsList.SelectionChanged += (_, _) =>
+        {
+            var index = SearchResultsList.SelectedIndex;
+            if (index < 0 || index >= _searchMatches.Count)
+                return;
+
+            ShowPage(_searchMatches[index].Page);
+            SearchBox.Text = string.Empty;
+            SearchResultsPanel.IsVisible = false;
+        };
+    }
+
+    private void UpdateSearchResults(string query)
+    {
+        query = query.Trim();
+
+        if (query.Length == 0)
+        {
+            SearchResultsPanel.IsVisible = false;
+            _searchMatches = new();
+            return;
+        }
+
+        _searchMatches = SearchIndex
+            .Where(f => f.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Take(8)
+            .ToList();
+
+        SearchResultsList.ItemsSource = _searchMatches.Select(m => m.Name).ToList();
+        SearchResultsPanel.IsVisible = _searchMatches.Count > 0;
     }
 
     // ----- Launch page -----
@@ -151,15 +228,12 @@ public partial class MainWindow : Window
     {
         try
         {
-            var flags = _flagsManager.Load();
-            if (flags.Count > 0)
-            {
-                AppendLog($"[*] Applying {flags.Count} FastFlag(s)...");
-                var result = _flagsManager.ApplyToInstalledClients(flags);
-                AppendLog($"[*] FastFlags applied to {result.TargetsWritten} install(s).");
-                foreach (var failure in result.Failures)
-                    AppendLog($"[!] {failure}");
-            }
+            var flags = _flagsManager.BuildEffectiveFlags(_settings);
+            AppendLog($"[*] Applying {flags.Count} FastFlag(s) (incl. Graphics API / Framerate presets)...");
+            var result = _flagsManager.ApplyToInstalledClients(flags);
+            AppendLog($"[*] FastFlags applied to {result.TargetsWritten} install(s).");
+            foreach (var failure in result.Failures)
+                AppendLog($"[!] {failure}");
 
             AppendLog($"Launching {version.DisplayName} ({version.FolderName})...");
             var exePath = VersionLocator.FindExecutable(version.FolderName);
@@ -168,7 +242,7 @@ public partial class MainWindow : Window
                 AppendLog("[-] Executable not found. Searched:");
                 foreach (var p in VersionLocator.GetExecutablePaths(version.FolderName))
                     AppendLog($"    - {p}");
-                ShowPage(3);
+                ShowPage(4);
                 return;
             }
 
@@ -192,12 +266,12 @@ public partial class MainWindow : Window
         catch (ProcessLaunchException ex)
         {
             AppendLog($"[!] {ex.Message}");
-            ShowPage(3);
+            ShowPage(4);
         }
         catch (Exception ex)
         {
             AppendLog($"[!] Launch failed: {ex.Message}");
-            ShowPage(3);
+            ShowPage(4);
         }
     }
 
@@ -279,39 +353,53 @@ public partial class MainWindow : Window
             : "Not downloaded yet.";
     }
 
-    // ----- Integrations: Windows / Linux -----
+    // ----- Integrations: Activity tracking -----
 
-    private async void BtnSetupLinuxIntegration_Click(object? sender, RoutedEventArgs e)
+    private void WireActivityTracking()
     {
-        try
-        {
-            var exePath = Environment.ProcessPath ?? "KSC-Sharp.App";
-            LinuxIntegration.CreateDesktopEntry(exePath);
-            AppendLog("[*] Desktop entry created.");
+        ToggleActivityTracking.IsChecked = _settings.ActivityTrackingEnabled;
+        ToggleQueryServerDetails.IsChecked = _settings.QueryServerDetailsEnabled;
+        ApplyActivityTrackingGate();
 
-            LinuxIntegration.InstallIcon();
-            AppendLog("[*] Icon installed.");
-
-            await Task.Run(LinuxIntegration.RegisterMimeHandler);
-            AppendLog("[*] MIME handler registered.");
-        }
-        catch (Exception ex)
+        ToggleActivityTracking.Click += (_, _) =>
         {
-            AppendLog($"[!] Linux integration failed: {ex.Message}");
-        }
+            _settings.ActivityTrackingEnabled = ToggleActivityTracking.IsChecked == true;
+            _settings.Save();
+            ApplyActivityTrackingGate();
+        };
+
+        ToggleQueryServerDetails.Click += (_, _) =>
+        {
+            _settings.QueryServerDetailsEnabled = ToggleQueryServerDetails.IsChecked == true;
+            _settings.Save();
+        };
+
+        BtnCheckServer.Click += BtnCheckServer_Click;
     }
 
-    private void BtnRemoveLinuxIntegration_Click(object? sender, RoutedEventArgs e)
+    private void ApplyActivityTrackingGate()
     {
-        try
+        var enabled = _settings.ActivityTrackingEnabled;
+        ToggleQueryServerDetails.IsEnabled = enabled;
+        BtnCheckServer.IsEnabled = enabled;
+        if (!enabled)
+            ServerDetailsText.Text = "Enable activity tracking first.";
+    }
+
+    private async void BtnCheckServer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settings.QueryServerDetailsEnabled)
         {
-            LinuxIntegration.UninstallIntegration();
-            AppendLog("[*] Linux integration removed.");
+            ServerDetailsText.Text = "Turn on \"Query server details\" first.";
+            return;
         }
-        catch (Exception ex)
-        {
-            AppendLog($"[!] Failed to remove integration: {ex.Message}");
-        }
+
+        ServerDetailsText.Text = "Checking...";
+        var location = await ServerLocator.QueryCurrentServerAsync();
+
+        ServerDetailsText.Text = location is null
+            ? "Couldn't determine your server (no client log found, or it's not in a game yet)."
+            : $"{location.Ip} – {location.City}, {location.Region}, {location.Country} ({location.Isp})";
     }
 
     // ----- Integrations: Discord Rich Presence -----
@@ -319,6 +407,7 @@ public partial class MainWindow : Window
     private void WireDiscord()
     {
         ToggleDiscordEnabled.IsChecked = _settings.DiscordEnabled;
+        ToggleDiscordShowActivity.IsChecked = _settings.DiscordShowActivity;
         ToggleDiscordJoining.IsChecked = _settings.DiscordAllowJoining;
         ToggleDiscordAccount.IsChecked = _settings.DiscordShowAccount;
         ComboDiscordDisplay.SelectedIndex = _settings.DiscordShowDetails ? 1 : 0;
@@ -341,6 +430,12 @@ public partial class MainWindow : Window
                 _discord.Disconnect();
                 DiscordStatusText.Text = "Discord Rich Presence is off.";
             }
+        };
+
+        ToggleDiscordShowActivity.Click += (_, _) =>
+        {
+            _settings.DiscordShowActivity = ToggleDiscordShowActivity.IsChecked == true;
+            _settings.Save();
         };
 
         ComboDiscordDisplay.SelectionChanged += (_, _) =>
@@ -382,6 +477,13 @@ public partial class MainWindow : Window
         if (!_discord.IsConnected)
             return;
 
+        if (!_settings.DiscordShowActivity)
+        {
+            // Stay connected, but don't publish what we're playing.
+            _discord.ClearActivity();
+            return;
+        }
+
         var activity = new DiscordActivity
         {
             Details = $"Playing {KoroneConfig.ProductName}",
@@ -399,36 +501,6 @@ public partial class MainWindow : Window
         AppendLog(ok ? "[*] Discord activity updated." : "[!] Discord activity update failed.");
     }
 
-    // ----- Integrations: Activity tracking -----
-
-    private void WireActivityTracking()
-    {
-        ToggleQueryServerDetails.IsChecked = _settings.QueryServerDetailsEnabled;
-        ToggleQueryServerDetails.Click += (_, _) =>
-        {
-            _settings.QueryServerDetailsEnabled = ToggleQueryServerDetails.IsChecked == true;
-            _settings.Save();
-        };
-
-        BtnCheckServer.Click += BtnCheckServer_Click;
-    }
-
-    private async void BtnCheckServer_Click(object? sender, RoutedEventArgs e)
-    {
-        if (!_settings.QueryServerDetailsEnabled)
-        {
-            ServerDetailsText.Text = "Turn on \"Query server details\" first.";
-            return;
-        }
-
-        ServerDetailsText.Text = "Checking...";
-        var location = await ServerLocator.QueryCurrentServerAsync();
-
-        ServerDetailsText.Text = location is null
-            ? "Couldn't determine your server (no client log found, or it's not in a game yet)."
-            : $"{location.Ip} – {location.City}, {location.Region}, {location.Country} ({location.Isp})";
-    }
-
     // ----- Integrations: Window manipulation -----
 
     private void WireWindowManipulation()
@@ -442,6 +514,41 @@ public partial class MainWindow : Window
             if (_settings.WindowManipulationEnabled && !WindowManipulator.IsSupported)
                 AppendLog("[!] Window manipulation is only implemented on Windows so far.");
         };
+    }
+
+    // ----- Integrations: Windows / Linux -----
+
+    private async void BtnSetupLinuxIntegration_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath ?? "KSC-Sharp.App";
+            LinuxIntegration.CreateDesktopEntry(exePath);
+            AppendLog("[*] Desktop entry created.");
+
+            LinuxIntegration.InstallIcon();
+            AppendLog("[*] Icon installed.");
+
+            await Task.Run(LinuxIntegration.RegisterMimeHandler);
+            AppendLog("[*] MIME handler registered.");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[!] Linux integration failed: {ex.Message}");
+        }
+    }
+
+    private void BtnRemoveLinuxIntegration_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            LinuxIntegration.UninstallIntegration();
+            AppendLog("[*] Linux integration removed.");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[!] Failed to remove integration: {ex.Message}");
+        }
     }
 
     // ----- FastFlags page -----
@@ -480,11 +587,31 @@ public partial class MainWindow : Window
 
         if (result.ApplyNow)
         {
-            var applyResult = _flagsManager.ApplyToInstalledClients(result.Flags);
+            var applyResult = _flagsManager.ApplyToInstalledClients(_flagsManager.BuildEffectiveFlags(_settings));
             AppendLog($"[*] Applied to {applyResult.TargetsWritten} install(s).");
             foreach (var failure in applyResult.Failures)
                 AppendLog($"[!] {failure}");
         }
+    }
+
+    // ----- Global Settings page -----
+
+    private void WireGlobalSettings()
+    {
+        ComboGraphicsApi.SelectedIndex = (int)_settings.GraphicsApi;
+        NumFramerateLimit.Value = _settings.FramerateLimit;
+
+        ComboGraphicsApi.SelectionChanged += (_, _) =>
+        {
+            _settings.GraphicsApi = (GraphicsApi)ComboGraphicsApi.SelectedIndex;
+            _settings.Save();
+        };
+
+        NumFramerateLimit.ValueChanged += (_, _) =>
+        {
+            _settings.FramerateLimit = (int)(NumFramerateLimit.Value ?? 60);
+            _settings.Save();
+        };
     }
 
     // ----- About page -----

@@ -148,6 +148,18 @@
       <Setter Property="Background" Value="{DynamicResource AccentLightBrush}"/>
     </Style>
 
+    <Style Selector="ListBoxItem.searchresult">
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Foreground" Value="#E4E0F5"/>
+    </Style>
+    <Style Selector="ListBoxItem.searchresult:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource NavHoverBrush}"/>
+    </Style>
+    <Style Selector="ListBoxItem.searchresult:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource NavSelectedBrush}"/>
+    </Style>
+
     <Style Selector="TextBlock.h1">
       <Setter Property="FontSize" Value="24"/>
       <Setter Property="FontWeight" Value="Bold"/>
