@@ -7,6 +7,9 @@ public class ParsedUri
     public List<string> Args { get; set; } = new();
     public string ArgsString { get; set; } = string.Empty;
     public string Year { get; set; } = "2017L";
+
+    /// <summary>The userId param from the link, if present - used for "Show Korone account" (see AppSettings).</summary>
+    public string? UserId { get; set; }
 }
 
 public static class KoroneUriParser
@@ -64,6 +67,9 @@ public static class KoroneUriParser
 
             if (key == "placelauncherurl")
                 val = WebUtility.UrlDecode(val);
+
+            if (key == "userId")
+                parsed.UserId = val;
 
             if (key == "launchmode")
             {

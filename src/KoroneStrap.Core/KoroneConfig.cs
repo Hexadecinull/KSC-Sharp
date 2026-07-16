@@ -4,12 +4,20 @@ namespace KSCSharp.Core;
 
 /// <summary>
 /// Every product-specific constant (branding, URLs, file/folder names) lives here.
-/// koroneStrap (the upstream Python project) changes these fairly often – when it does,
+/// koroneStrap (the upstream Python project) changes these fairly often - when it does,
 /// this should be the only file that needs touching.
+///
+/// A note on "Pekora" vs "Korone": Korone is the current name of the platform; Pekora is
+/// its old name. Display text/branding in this codebase uses "Korone" throughout. What does
+/// NOT change here are values that reflect the platform's actual, real technical identity -
+/// the registered URI scheme (pekora-player://), the download domain (pekora.zip), and the
+/// bootstrapper's real filename - because those are what the live platform and its users'
+/// browsers actually use today. Renaming those would silently break real interop rather than
+/// just being a cosmetic update.
 /// </summary>
 public static class KoroneConfig
 {
-    public const string ProductName = "Pekora Player";
+    public const string ProductName = "Korone";
     public const string AppName = "KSC-Sharp";
 
     /// <summary>Custom URI scheme used for protocol launches, e.g. pekora-player://launchmode:...</summary>
@@ -25,9 +33,9 @@ public static class KoroneConfig
     public const string BootstrapperFileName = "PekoraPlayerLauncher.exe";
     public const string NegotiateUrl = "https://www.pekora.zip/Login/Negotiate.ashx";
 
-    public const string LinuxDesktopFileName = "pekora-player.desktop";
-    public const string LinuxUninstallDesktopFileName = "uninstall-pekora-player.desktop";
-    public const string LinuxIconFileName = "pekora-player.png";
+    public const string LinuxDesktopFileName = "korone-player.desktop";
+    public const string LinuxUninstallDesktopFileName = "uninstall-korone-player.desktop";
+    public const string LinuxIconFileName = "korone-player.png";
 
     public const string FastFlagsFileName = "fastFlags.json";
     public const string ClientSettingsFolderName = "ClientSettings";
@@ -47,6 +55,31 @@ public static class KoroneConfig
         new ClientVersion("2020", "2020L", Available: true),
         new ClientVersion("2021", "2021M", Available: true),
     };
+
+    /// <summary>
+    /// Korone Studio download URLs, one independent portable ZIP per year - unlike the Player,
+    /// these aren't confirmed to share the Versions/hash-folder install layout, so each is
+    /// tracked and updated separately. Confirmed live (fetched and got a real, large response)
+    /// as of this writing, but the internal folder/executable layout inside each ZIP has not
+    /// been inspected - see StudioManager's notes.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> StudioDownloadUrls = new Dictionary<string, string>
+    {
+        ["2017"] = "https://setup.pekora.zip/PekoraStudio2017.zip",
+        ["2018"] = "https://setup.pekora.zip/PekoraStudio2018.zip",
+        ["2020"] = "https://setup.pekora.zip/PekoraStudio2020.zip",
+        ["2021"] = "https://setup.pekora.zip/PekoraStudio2021.zip",
+    };
+
+    /// <summary>
+    /// Best-effort guess at the Studio executable name inside each extracted ZIP, inferred
+    /// from this project's own ClientExecutableName pattern (ProjectX + role + Beta) and
+    /// Bloxstrap's equivalent (RobloxPlayerBeta.exe / RobloxStudioBeta.exe use the same
+    /// Player/Studio naming split). NOT verified against a real extracted install - the ZIPs
+    /// are too large to fetch and inspect from here. If this is wrong, StudioManager's drive
+    /// scan just won't find anything, and this is the one constant to fix.
+    /// </summary>
+    public const string StudioExecutableName = "ProjectXStudioBeta.exe";
 
     /// <summary>
     /// Per-user directory for files this app generates at runtime (downloaded bootstrapper,

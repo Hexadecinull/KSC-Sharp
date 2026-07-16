@@ -12,7 +12,7 @@ public record ApplyResult(int TargetsWritten, IReadOnlyList<string> Failures);
 ///  - a local cache file (fastFlags.json next to the app) used purely so the UI has
 ///    something to load/edit/persist between runs, and
 ///  - the actual ClientAppSettings.json inside each installed client's ClientSettings folder,
-///    which is what Pekora/Roblox itself reads at startup. Writing only the former (which is
+///    which is what Korone/Roblox itself reads at startup. Writing only the former (which is
 ///    all the previous port did) has no effect on the running game.
 /// </summary>
 public class FastFlagsManager
@@ -126,6 +126,42 @@ public class FastFlagsManager
         flags[EngineFlags.TaskSchedulerTargetFps] = settings.FramerateLimit;
         return flags;
     }
+
+    /// <summary>
+    /// Reads back what's actually in each installed client's ClientAppSettings.json and
+    /// confirms the Graphics API preset matches what was meant to be applied - a write can
+    /// "succeed" (no exception) without necessarily sticking, e.g. a permissions issue or a
+    /// concurrent write from the client itself. Returns install years where it doesn't match.
+    /// </summary>
+    public List<string> VerifyGraphicsApiApplied(GraphicsApi expected)
+    {
+        var mismatches = new List<string>();
+
+        foreach (var (year, _, applied) in ReadAppliedFlags())
+        {
+            if (applied is null)
+            {
+                mismatches.Add($"{year}: no ClientAppSettings.json found to verify");
+                continue;
+            }
+
+            var expectedFlags = new Dictionary<string, object>();
+            EngineFlags.ApplyGraphicsApi(expectedFlags, expected);
+
+            foreach (var (key, value) in expectedFlags)
+            {
+                if (!applied.TryGetValue(key, out var actual) || !Equals(NormalizeBool(actual), NormalizeBool(value)))
+                {
+                    mismatches.Add($"{year}: expected {key}={value}, found {(applied.TryGetValue(key, out var v) ? v : "(missing)")}");
+                }
+            }
+        }
+
+        return mismatches;
+    }
+
+    private static object NormalizeBool(object value) =>
+        value is bool b ? b : (value?.ToString()?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false);
 
     /// <summary>Reads back whatever is currently written into installed clients, for diagnostics.</summary>
     public IReadOnlyList<(string YearFolder, string SettingsFile, Dictionary<string, object>? Flags)> ReadAppliedFlags()

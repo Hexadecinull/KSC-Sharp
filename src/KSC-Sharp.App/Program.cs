@@ -11,11 +11,22 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        if (args.Length > 0)
+        if (args.Length > 0 && IsInstallOrUninstall(args[0]))
         {
             var handled = TryHandleCliArgs(args, out var exitCode);
             if (handled)
                 return exitCode;
+        }
+
+        if (args.Length > 0 && TryGetRawUri(args, out var rawUri))
+        {
+            // Routed through the normal Avalonia startup (not handled headlessly) so it can
+            // show a loading window - see App.axaml.cs. Intentionally skips the single-instance
+            // lock below: a join-link click should always get its own loading window, even if
+            // the main GUI is already open.
+            PendingUri = rawUri;
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            return 0;
         }
 
         var singleInstanceLock = AcquireSingleInstanceLock();
@@ -36,6 +47,12 @@ internal static class Program
 
         return 0;
     }
+
+    /// <summary>Set by Main() before starting Avalonia when launched via a join link; read by App.axaml.cs.</summary>
+    public static string? PendingUri { get; private set; }
+
+    private static bool IsInstallOrUninstall(string first) =>
+        first is "--install" or "--uninstall" or "-u";
 
     /// <summary>
     /// Prevents launching a second GUI window (e.g. double-clicking the icon while it's
@@ -63,31 +80,32 @@ internal static class Program
             .WithInterFont()
             .LogToTrace();
 
-    /// <summary>Returns true if a headless CLI flow was matched (and the app should exit without a GUI).</summary>
-    private static bool TryHandleCliArgs(string[] args, out int exitCode)
+    /// <summary>Detects a pekora-player:// URI as either argv[0] directly, or as `--uri &lt;value&gt;`.</summary>
+    private static bool TryGetRawUri(string[] args, out string rawUri)
     {
         var first = args[0];
 
-        // pekora-player://... can arrive either as argv[0] directly (typical URI-scheme
-        // invocation) or as `--uri <value>` depending on how the OS quotes it.
-        string? rawUri = null;
         if (first.StartsWith($"{KoroneConfig.UriScheme}://", StringComparison.OrdinalIgnoreCase) ||
             first.StartsWith($"{KoroneConfig.UriScheme}:", StringComparison.OrdinalIgnoreCase))
         {
             rawUri = first;
-        }
-        else if (first == "--uri" && args.Length > 1)
-        {
-            rawUri = args[1];
-        }
-
-        if (rawUri is not null)
-        {
-            exitCode = HandleUriLaunch(rawUri);
             return true;
         }
 
-        switch (first)
+        if (first == "--uri" && args.Length > 1)
+        {
+            rawUri = args[1];
+            return true;
+        }
+
+        rawUri = "";
+        return false;
+    }
+
+    /// <summary>Returns true if a headless CLI flow was matched (and the app should exit without a GUI).</summary>
+    private static bool TryHandleCliArgs(string[] args, out int exitCode)
+    {
+        switch (args[0])
         {
             case "--install":
                 exitCode = HandleInstall();
@@ -101,44 +119,6 @@ internal static class Program
             default:
                 exitCode = 0;
                 return false;
-        }
-    }
-
-    private static int HandleUriLaunch(string rawUri)
-    {
-        var cleaned = KoroneUriParser.StripScheme(rawUri);
-        var parsed = KoroneUriParser.Parse(cleaned);
-
-        Console.WriteLine($"[*] Client version: {parsed.Year}");
-        Console.WriteLine($"[*] Launch arguments: {parsed.ArgsString}");
-
-        var flagsManager = new FastFlagsManager();
-        var flags = flagsManager.Load();
-        if (flags.Count > 0)
-        {
-            Console.WriteLine($"[*] Applying {flags.Count} FastFlag(s)...");
-            flagsManager.ApplyToInstalledClients(flags);
-        }
-
-        var exePath = VersionLocator.FindExecutable(parsed.Year);
-        if (exePath is null)
-        {
-            Console.Error.WriteLine($"[!] Could not find an installed client for {parsed.Year}.");
-            foreach (var p in VersionLocator.GetExecutablePaths(parsed.Year))
-                Console.Error.WriteLine($"    - {p}");
-            return 1;
-        }
-
-        try
-        {
-            ProcessLauncher.Launch(exePath, parsed.Args);
-            Console.WriteLine("[*] Client launched successfully!");
-            return 0;
-        }
-        catch (ProcessLaunchException ex)
-        {
-            Console.Error.WriteLine($"[!] {ex.Message}");
-            return 1;
         }
     }
 

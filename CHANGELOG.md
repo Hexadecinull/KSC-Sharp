@@ -2,6 +2,28 @@
 
 Development history of this rewrite. For end-user documentation, see [README.md](./README.md).
 
+## 1.3.0
+
+### Added
+- **Korone Studio support** (Experimental): locate, download/install, update-check, and launch Studio 2017/2018/2020/2021 independently. Since these are portable installs that can live anywhere, locating them requires an explicit drive scan (opt-in, never automatic) that searches bounded-depth for the Studio executable. Update checks compare the server's file signature (ETag/Last-Modified/Content-Length) against what was recorded at install time - a true content hash would mean downloading the whole archive just to check for updates. The executable name this all depends on (`ProjectXStudioBeta.exe`) is inferred from this project's own Player naming convention and Bloxstrap's equivalent split, not verified against a real extracted install - the download URLs are confirmed real and live (fetched and got responses too large to inspect further), but their contents weren't.
+- **Loading window for join links**: opening a `pekora-player://` link now shows a small Roblox-bootstrapper-style loading window with live status instead of silently launching (or silently failing) in the background. Fixed a real bug in the process: join-link launches were using the raw FastFlags cache instead of `BuildEffectiveFlags`, so the Graphics API / Framerate presets never applied to anything launched via a join link, only in-app launches.
+- **Enable Borderless Fullscreen for Vulkan**, under Window Manipulation: real Win32 window manipulation (strip chrome, resize to the display), not a FastFlag - Vulkan always forces exclusive fullscreen regardless of client settings (confirmed via Bloxstrap's own FastFlags guide), so a *borderless* fullscreen needs to happen at the window level instead. Only interactive when Graphics API is set to Vulkan.
+- **"Show Korone account" now does something real**, within an honest limit: the userId from a join link you open through KSC-Sharp gets captured and shown, never anything from reading account credentials/cookies. This only covers clients launched via join link, not direct in-app launches, which don't carry an account id at all.
+- Real vector icons for all six sidebar tabs, plus a search icon and a clear button in the sidebar search box - Launch (play triangle), Integrations (plus), FastFlags (hollow flag, solid pole), Global Settings (hollow ring - see note below), Log (list), About (circled i).
+- Graphics API apply verification: after applying, KSC-Sharp reads back each installed client's ClientAppSettings.json and confirms the Graphics API flags actually match what was meant to be written, logging any mismatch instead of assuming a clean write always stuck.
+- Windows URI registration now reads back what it wrote and reports a specific failure if it doesn't verify, and also sets the conventional protocol description value it was missing before.
+
+### Changed
+- **"Pekora" replaced with "Korone"** throughout display text, UI labels, tooltips, and comments - Korone is the platform's current name, Pekora its old one. What did NOT change: the registered URI scheme (`pekora-player://`), the download domain (`pekora.zip`), and the bootstrapper's real filename - those reflect the live platform's actual technical identity today, and renaming them would silently break real interop rather than just being cosmetic.
+- Sidebar search rebuilt: results now live in the normal layout flow instead of floating as an overlay, so they push the nav down instead of covering (and blocking clicks on) it. Clearing the search, picking a result, or navigating to any tab now reliably dismisses it - previously it could linger visible after clicking a nav item underneath it.
+- Sub-category headers/descriptions in Integrations and Global Settings now sit tight against their own content, with breathing room only between different sub-categories, not within one.
+- Version bump policy is now sized to scope per change list rather than a fixed increment (this one: a new feature subsystem plus several substantial fixes → another minor bump).
+- Version bumped to 1.3.0.
+
+### Known limitations
+- The Global Settings gear icon is a plain hollow ring, not literal gear teeth - a deliberate safety trade-off. A malformed complex icon path can throw a runtime parse exception and take down the page it's on; a plain ring carries none of that risk. Happy to revisit with a verified path if one turns up.
+- Korone Studio's executable name and per-version folder layout are inferred, not confirmed - see the Added section above.
+
 ## 1.2.0
 
 ### Added

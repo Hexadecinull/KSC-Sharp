@@ -13,9 +13,9 @@ public static class ServerLocator
     // Roblox's client log contains a line like:
     //   ... [FLog::Network] UDMUX Address = 128.116.15.100, StartTime = ...
     // when it joins a game server. This is publicly documented behavior (it's what every
-    // "Roblox server region" browser extension / Discord bot parses), and since Pekora is
+    // "Roblox server region" browser extension / Discord bot parses), and since Korone is
     // Roblox-compatible it very likely logs the same way - but this hasn't been confirmed
-    // against an actual Pekora log file. If it doesn't match, this regex is the one place
+    // against an actual Korone log file. If it doesn't match, this regex is the one place
     // to fix once a real sample log is available.
     private static readonly Regex ServerAddressPattern =
         new(@"UDMUX Address\s*=\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})", RegexOptions.Compiled);

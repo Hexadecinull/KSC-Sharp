@@ -5,7 +5,7 @@ namespace KSCSharp.Core.Platform;
 /// <summary>
 /// Locates installed clients on disk.
 ///
-/// Install layout (matches upstream koroneStrap, and real Pekora/ProjectX installs):
+/// Install layout (matches upstream koroneStrap, and real Korone (Pekora/ProjectX) installs):
 ///   &lt;VersionsRoot&gt;/&lt;version-hash-dir&gt;/&lt;yearFolder&gt;/ProjectXPlayerBeta.exe
 ///
 /// On Windows, VersionsRoot is under %LocalAppData%. On Linux/macOS the client is a Windows

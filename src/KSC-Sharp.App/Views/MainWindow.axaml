@@ -3,8 +3,8 @@
         x:Class="KSCSharp.App.Views.MainWindow"
         Icon="avares://KSC-Sharp.App/Assets/icon.png"
         Title="KSC-Sharp"
-        Width="960" Height="660"
-        MinWidth="780" MinHeight="520"
+        Width="980" Height="680"
+        MinWidth="800" MinHeight="540"
         Background="{DynamicResource SurfaceBrush}">
   <Grid ColumnDefinitions="220,*">
 
@@ -12,7 +12,7 @@
     <Border Grid.Column="0" Background="{DynamicResource InkBrush}">
       <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14,20,14,16">
 
-        <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0,0,18">
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0,0,16">
           <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="30" Height="30"/>
           <StackPanel>
             <TextBlock Text="KSC-Sharp" FontSize="16" FontWeight="Bold" Foreground="White"/>
@@ -20,22 +20,90 @@
           </StackPanel>
         </StackPanel>
 
-        <Panel Grid.Row="1" Margin="0,0,0,10">
-          <TextBox x:Name="SearchBox" Watermark="Search features…" Width="192"
-                   Background="#332C58" BorderThickness="0" Foreground="White"/>
-          <Border x:Name="SearchResultsPanel" IsVisible="False" Background="{DynamicResource InkSoftBrush}"
-                  CornerRadius="8" Margin="0,36,0,0" Padding="4" ZIndex="10">
-            <ListBox x:Name="SearchResultsList" Classes="searchresult" Background="Transparent" BorderThickness="0" MaxHeight="220"/>
+        <!-- Search: in normal layout flow (not an overlay), so results push the nav down
+             instead of floating over it and blocking clicks. -->
+        <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,10">
+          <Grid ColumnDefinitions="Auto,*,Auto"
+                Background="#332C58" Height="32">
+            <Viewbox Grid.Column="0" Width="12" Height="12" Margin="8,0,6,0">
+              <Canvas Width="14" Height="14">
+                <Ellipse Width="9" Height="9" Canvas.Left="0" Canvas.Top="0" Stroke="#9086C0" StrokeThickness="1.6"/>
+                <Line StartPoint="7.5,7.5" EndPoint="13,13" Stroke="#9086C0" StrokeThickness="1.6"/>
+              </Canvas>
+            </Viewbox>
+            <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Search features…"
+                     Background="Transparent" BorderThickness="0" Foreground="White" VerticalContentAlignment="Center" Padding="0,0,4,0"/>
+            <Button x:Name="BtnClearSearch" Grid.Column="2" Classes="ghost" Padding="6" Margin="0,0,4,0" IsVisible="False">
+              <Viewbox Width="9" Height="12">
+                <Path Fill="#9086C0" Data="M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z"/>
+              </Viewbox>
+            </Button>
+          </Grid>
+          <Border x:Name="SearchResultsPanel" IsVisible="False" Background="{DynamicResource InkSoftBrush}" CornerRadius="6" Padding="4">
+            <ListBox x:Name="SearchResultsList" Classes="searchresult" Background="Transparent" BorderThickness="0" MaxHeight="180"/>
           </Border>
-        </Panel>
+        </StackPanel>
 
         <StackPanel Grid.Row="2" Spacing="2">
-          <Button x:Name="NavLaunch" Classes="navitem selected" Content="▶  Launch"/>
-          <Button x:Name="NavIntegrations" Classes="navitem" Content="⚙  Integrations"/>
-          <Button x:Name="NavFastFlags" Classes="navitem" Content="⚑  FastFlags"/>
-          <Button x:Name="NavGlobalSettings" Classes="navitem" Content="◧  Global Settings"/>
-          <Button x:Name="NavLog" Classes="navitem" Content="≡  Log"/>
-          <Button x:Name="NavAbout" Classes="navitem" Content="ℹ  About"/>
+          <Button x:Name="NavLaunch" Classes="navitem selected">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Polygon Points="0,0 0,14 12,7" Fill="#C9C4E8"/>
+              </Viewbox>
+              <TextBlock Text="Launch"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavIntegrations" Classes="navitem">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Path Stroke="#C9C4E8" StrokeThickness="1.8" Data="M7,0 L7,14 M0,7 L14,7"/>
+              </Viewbox>
+              <TextBlock Text="Integrations"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavFastFlags" Classes="navitem">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Canvas Width="14" Height="14">
+                  <Line StartPoint="1,0" EndPoint="1,14" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                  <Path Stroke="#C9C4E8" StrokeThickness="1.4" Fill="Transparent" Data="M1,1 L12,3.5 L1,6 Z"/>
+                </Canvas>
+              </Viewbox>
+              <TextBlock Text="FastFlags"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavGlobalSettings" Classes="navitem">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Ellipse Width="13" Height="13" Stroke="#C9C4E8" StrokeThickness="2.2"/>
+              </Viewbox>
+              <TextBlock Text="Global Settings"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavLog" Classes="navitem">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Canvas Width="14" Height="10">
+                  <Line StartPoint="0,1" EndPoint="14,1" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                  <Line StartPoint="0,5" EndPoint="14,5" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                  <Line StartPoint="0,9" EndPoint="14,9" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                </Canvas>
+              </Viewbox>
+              <TextBlock Text="Log"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavAbout" Classes="navitem">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Viewbox Width="13" Height="13">
+                <Canvas Width="14" Height="14">
+                  <Ellipse Width="14" Height="14" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                  <Ellipse Width="1.6" Height="1.6" Canvas.Left="6.2" Canvas.Top="3.4" Fill="#C9C4E8"/>
+                  <Line StartPoint="7,6.2" EndPoint="7,10.6" Stroke="#C9C4E8" StrokeThickness="1.6"/>
+                </Canvas>
+              </Viewbox>
+              <TextBlock Text="About"/>
+            </StackPanel>
+          </Button>
         </StackPanel>
 
         <TextBlock Grid.Row="3" x:Name="SidebarVersionText" Foreground="#8079AA" FontSize="11" Margin="4,0,0,0"/>
@@ -46,47 +114,73 @@
     <Grid Grid.Column="1" Margin="28,24,28,20">
 
       <!-- Launch page -->
-      <StackPanel x:Name="LaunchPage" Spacing="16">
-        <StackPanel>
-          <TextBlock Text="Launch" Classes="h1"/>
-          <TextBlock x:Name="SubtitleText" Classes="subtle"/>
-        </StackPanel>
-
-        <WrapPanel x:Name="VersionButtonsPanel"/>
-
-        <Border Classes="card">
-          <StackPanel Spacing="10">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <TextBlock Text="Bootstrapper" Classes="h2"/>
-              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                         ToolTip.Tip="The bootstrapper is Pekora's own installer/updater program. Download it here, then run it whenever you want to install the client fresh or check for updates – KSC-Sharp itself doesn't install game files directly."/>
-            </StackPanel>
-            <WrapPanel>
-              <Button x:Name="BtnFastFlags" Content="FastFlags…" Classes="secondary" Margin="0,0,8,8"/>
-              <Button x:Name="BtnDownloadBootstrapper" Content="Download / Update" Classes="secondary" Margin="0,0,8,8"/>
-              <Button x:Name="BtnLaunchBootstrapper" Content="Run Bootstrapper" Classes="secondary" Margin="0,0,8,8"/>
-            </WrapPanel>
-            <TextBlock x:Name="BootstrapperStatusText" Classes="subtle"/>
-            <StackPanel x:Name="DownloadProgressRow" Orientation="Horizontal" Spacing="10" IsVisible="False">
-              <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Height="8" Width="260"
-                           Foreground="{DynamicResource AccentBrush}"/>
-              <TextBlock x:Name="ProgressText" Text="0%" Classes="subtle" VerticalAlignment="Center"/>
-            </StackPanel>
+      <ScrollViewer x:Name="LaunchPage">
+        <StackPanel Spacing="16" Margin="0,0,12,0">
+          <StackPanel>
+            <TextBlock Text="Launch" Classes="h1"/>
+            <TextBlock x:Name="SubtitleText" Classes="subtle"/>
           </StackPanel>
-        </Border>
-      </StackPanel>
+
+          <WrapPanel x:Name="VersionButtonsPanel"/>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Bootstrapper" Classes="h2"/>
+                <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                           ToolTip.Tip="The bootstrapper is Korone's own installer/updater program. Download it here, then run it whenever you want to install the client fresh or check for updates. KSC-Sharp itself doesn't install game files directly."/>
+              </StackPanel>
+              <WrapPanel>
+                <Button x:Name="BtnFastFlags" Content="FastFlags…" Classes="secondary" Margin="0,0,8,8"/>
+                <Button x:Name="BtnDownloadBootstrapper" Content="Download / Update" Classes="secondary" Margin="0,0,8,8"/>
+                <Button x:Name="BtnLaunchBootstrapper" Content="Run Bootstrapper" Classes="secondary" Margin="0,0,8,8"/>
+              </WrapPanel>
+              <TextBlock x:Name="BootstrapperStatusText" Classes="subtle"/>
+              <StackPanel x:Name="DownloadProgressRow" Orientation="Horizontal" Spacing="10" IsVisible="False">
+                <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Height="8" Width="260"
+                             Foreground="{DynamicResource AccentBrush}"/>
+                <TextBlock x:Name="ProgressText" Text="0%" Classes="subtle" VerticalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <StackPanel Spacing="2">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Korone Studio" Classes="h2"/>
+              <TextBlock Text="EXPERIMENTAL" Classes="badge"/>
+            </StackPanel>
+            <TextBlock Text="Portable installs, one per year. Locate or install each version separately below." Classes="subtle"/>
+          </StackPanel>
+          <WrapPanel x:Name="StudioButtonsPanel"/>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Manage Korone Studio" Classes="h2"/>
+                <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                           ToolTip.Tip="Studio installs are portable and can live anywhere, so KSC-Sharp needs to scan your drive(s) to find them - this only happens when you click Scan, never automatically. Update checks compare the server's file signature (ETag/Last-Modified) against what was recorded at install time, not a true content hash, to avoid downloading the whole archive just to check."/>
+              </StackPanel>
+              <Button x:Name="BtnScanDrives" Content="Scan drives for Korone Studio…" Classes="secondary" HorizontalAlignment="Left"/>
+              <TextBlock x:Name="StudioScanStatusText" Classes="subtle" TextWrapping="Wrap"/>
+              <ItemsControl x:Name="StudioManageList"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
 
       <!-- Integrations page -->
       <ScrollViewer x:Name="IntegrationsPage" IsVisible="False">
-        <StackPanel Spacing="14" Margin="0,0,12,0">
-          <StackPanel>
+        <StackPanel Spacing="4" Margin="0,0,12,0">
+          <StackPanel Margin="0,0,0,10">
             <TextBlock Text="Integrations" Classes="h1"/>
             <TextBlock Text="Configure additional functionality to go alongside Korone." Classes="subtle"/>
           </StackPanel>
 
           <!-- Activity Tracking -->
-          <TextBlock Text="Activity Tracking" Classes="h2" Margin="0,6,0,0"/>
-          <Border Classes="card">
+          <StackPanel Spacing="0" Margin="0,0,0,4">
+            <TextBlock Text="Activity Tracking" Classes="h2"/>
+          </StackPanel>
+          <Border Classes="card" Margin="0,0,0,18">
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="2">
               <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
                 <TextBlock Text="Enable activity tracking" Classes="h2"/>
@@ -100,7 +194,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <TextBlock Text="Query server details" Classes="h2"/>
                   <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                             ToolTip.Tip="Reads the client's own log file for the server you joined, then looks up its rough location (city/region/country) via a public IP lookup – no Pekora involvement or proxy needed for that part. What's unverified is whether Pekora's log format matches the Roblox format this is based on."/>
+                             ToolTip.Tip="Reads the client's own log file for the server you joined, then looks up its rough location (city/region/country) via a public IP lookup - no Korone involvement or proxy needed for that part. What's unverified is whether Korone's log format matches the Roblox format this is based on."/>
                 </StackPanel>
                 <TextBlock Text="See roughly where your current game server is hosted, while a client is running." Classes="subtle" TextWrapping="Wrap"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
@@ -113,15 +207,16 @@
           </Border>
 
           <!-- Discord Rich Presence -->
-          <TextBlock Text="Discord Rich Presence" Classes="h2" Margin="0,6,0,0"/>
-          <TextBlock Text="This feature requires activity tracking to be enabled and the Discord desktop app to be installed and running."
-                     Classes="subtle" TextWrapping="Wrap"/>
-          <Border Classes="card">
+          <StackPanel Spacing="0" Margin="0,0,0,4">
+            <TextBlock Text="Discord Rich Presence" Classes="h2"/>
+            <TextBlock Text="This feature requires activity tracking to be enabled and the Discord desktop app to be installed and running." Classes="subtle" TextWrapping="Wrap"/>
+          </StackPanel>
+          <Border Classes="card" Margin="0,0,0,4">
             <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="2">
 
               <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
                 <TextBlock Text="Enable Discord Rich Presence" Classes="h2"/>
-                <TextBlock Text="The master switch for this section. Requires the Discord desktop app to be installed and running." Classes="subtle" TextWrapping="Wrap"/>
+                <TextBlock Text="The master switch for this section." Classes="subtle" TextWrapping="Wrap"/>
               </StackPanel>
               <ToggleSwitch x:Name="ToggleDiscordEnabled" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
 
@@ -150,7 +245,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <TextBlock Text="Allow activity joining" Classes="h2"/>
                   <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                             ToolTip.Tip="Adds a Join button to your Discord activity. Outbound only for now – friends can see and click it, but KSC-Sharp doesn't yet act on an incoming join request."/>
+                             ToolTip.Tip="Adds a Join button to your Discord activity. Outbound only for now - friends can see and click it, but KSC-Sharp doesn't yet act on an incoming join request."/>
                 </StackPanel>
                 <TextBlock Text="Shows a Join button so friends can join your game from Discord." Classes="subtle" TextWrapping="Wrap"/>
               </StackPanel>
@@ -160,40 +255,52 @@
 
               <StackPanel Grid.Row="8" Grid.Column="0" Margin="0,0,16,0">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="Show Pekora account" Classes="h2"/>
+                  <TextBlock Text="Show Korone account" Classes="h2"/>
                   <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                             ToolTip.Tip="KSC-Sharp doesn't currently detect which Pekora account is logged in, so this has no visible effect yet – deliberately not faked. It's here so the setting is in the right place once account detection is added."/>
+                             ToolTip.Tip="Only ever populated from the userId in a join link you opened through KSC-Sharp - never by reading account credentials. So this only works after joining a game via a pekora-player:// link at least once; direct in-app launches don't carry an account id."/>
                 </StackPanel>
-                <TextBlock Text="Not yet functional – see the ⓘ for why." Classes="subtle" TextWrapping="Wrap"/>
+                <TextBlock x:Name="ShowAccountStatusText" Classes="subtle" TextWrapping="Wrap"/>
               </StackPanel>
               <ToggleSwitch x:Name="ToggleDiscordAccount" Grid.Row="8" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
 
             </Grid>
           </Border>
-          <TextBlock x:Name="DiscordStatusText" Classes="subtle"/>
+          <TextBlock x:Name="DiscordStatusText" Classes="subtle" Margin="0,0,0,18"/>
 
           <!-- Window manipulation -->
-          <TextBlock Text="Window Manipulation" Classes="h2" Margin="0,6,0,0"/>
-          <Border Classes="card">
-            <Grid RowDefinitions="Auto" ColumnDefinitions="*,Auto" Margin="2">
+          <StackPanel Spacing="0" Margin="0,0,0,4">
+            <TextBlock Text="Window Manipulation" Classes="h2"/>
+          </StackPanel>
+          <Border Classes="card" Margin="0,0,0,18">
+            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="2">
               <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <TextBlock Text="Enable window manipulation" Classes="h2"/>
                   <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                             ToolTip.Tip="Windows only for now – Linux and macOS use entirely different windowing APIs that would need separate work."/>
+                             ToolTip.Tip="Windows only for now - Linux and macOS use entirely different windowing APIs that would need separate work."/>
                 </StackPanel>
                 <TextBlock Text="Allows KSC-Sharp to access Korone's window handle, allowing for better customization and features." Classes="subtle" TextWrapping="Wrap"/>
               </StackPanel>
               <ToggleSwitch x:Name="ToggleWindowManipulation" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+
+              <Border Grid.Row="1" Grid.ColumnSpan="2" Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12"/>
+
+              <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Enable Borderless Fullscreen for Vulkan" Classes="h2"/>
+                <TextBlock Text="Let's you use a fake version of borderless fullscreen while using Vulkan." Classes="subtle" TextWrapping="Wrap"/>
+              </StackPanel>
+              <ToggleSwitch x:Name="ToggleBorderlessVulkan" Grid.Row="2" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
             </Grid>
           </Border>
 
           <!-- Custom Integrations -->
-          <TextBlock Text="Custom Integrations" Classes="h2" Margin="0,6,0,0"/>
-          <TextBlock Text="Platform-specific ways to connect KSC-Sharp with your system's link handling and runtime."
-                     Classes="subtle" TextWrapping="Wrap"/>
+          <StackPanel Spacing="0" Margin="0,0,0,4">
+            <TextBlock Text="Custom Integrations" Classes="h2"/>
+            <TextBlock Text="Platform-specific ways to connect KSC-Sharp with your system's link handling and runtime."
+                       Classes="subtle" TextWrapping="Wrap"/>
+          </StackPanel>
 
-          <Border x:Name="WindowsIntegrationPanel" Classes="card">
+          <Border x:Name="WindowsIntegrationPanel" Classes="card" Margin="0,0,0,10">
             <StackPanel Spacing="10">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Windows" Classes="h2"/>
@@ -210,14 +317,14 @@
             </StackPanel>
           </Border>
 
-          <Border x:Name="LinuxIntegrationPanel" Classes="card">
+          <Border x:Name="LinuxIntegrationPanel" Classes="card" Margin="0,0,0,10">
             <StackPanel Spacing="10">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Linux" Classes="h2"/>
                 <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                           ToolTip.Tip="Adds a desktop entry and icon under your applications menu, and registers KSC-Sharp as the handler for pekora-player:// links. Safe to run again if you move the app – it just rewrites the entry."/>
+                           ToolTip.Tip="Adds a desktop entry and icon under your applications menu, and registers KSC-Sharp as the handler for pekora-player:// links. Safe to run again if you move the app - it just rewrites the entry."/>
               </StackPanel>
-              <TextBlock Text="Experimental – client versions run under Wine. Adds a desktop entry, icon, and link handler."
+              <TextBlock Text="Experimental - client versions run under Wine. Adds a desktop entry, icon, and link handler."
                          Classes="subtle" TextWrapping="Wrap"/>
               <WrapPanel>
                 <Button x:Name="BtnSetupLinuxIntegration" Content="Setup Desktop Integration" Classes="secondary" Margin="0,0,8,0"/>
@@ -226,12 +333,12 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="card">
+          <Border Classes="card" Margin="0,0,0,10">
             <StackPanel Spacing="10">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Wine (Linux / macOS)" Classes="h2"/>
                 <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                           ToolTip.Tip="Pekora's client is a Windows program, so it needs Wine to run anywhere else. This shows whether KSC-Sharp could find a working Wine install."/>
+                           ToolTip.Tip="Korone's client is a Windows program, so it needs Wine to run anywhere else. This shows whether KSC-Sharp could find a working Wine install."/>
               </StackPanel>
               <TextBlock x:Name="WineStatusText" Classes="subtle" TextWrapping="Wrap"/>
             </StackPanel>
@@ -273,14 +380,14 @@
 
       <!-- Global Settings page -->
       <ScrollViewer x:Name="GlobalSettingsPage" IsVisible="False">
-        <StackPanel Spacing="14" Margin="0,0,12,0">
-          <StackPanel>
+        <StackPanel Spacing="4" Margin="0,0,12,0">
+          <StackPanel Margin="0,0,0,10">
             <TextBlock Text="Global Settings" Classes="h1"/>
             <TextBlock Text="Set in-game settings from the KSC-Sharp menu." Classes="subtle"/>
           </StackPanel>
 
-          <TextBlock Text="Presets" Classes="h2" Margin="0,6,0,0"/>
-          <TextBlock Text="Rendering and Graphics" Classes="h2" Margin="12,0,0,0" FontSize="13.5"/>
+          <TextBlock Text="Presets" Classes="h2"/>
+          <TextBlock Text="Rendering and Graphics" Classes="h2" Margin="12,4,0,4" FontSize="13.5"/>
 
           <Border Classes="card">
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="2">
@@ -350,7 +457,7 @@
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock Text="Project" Classes="h2"/>
-              <TextBlock Text="A cross-platform bootstrapper for Korone (Pekora), styled after Bloxstrap and rewritten from koroneStrap in C#."
+              <TextBlock Text="A cross-platform bootstrapper for Korone, styled after Bloxstrap and rewritten from koroneStrap in C#."
                          Classes="subtle" TextWrapping="Wrap"/>
               <WrapPanel>
                 <Button x:Name="BtnOpenSource" Classes="secondary" Margin="0,0,8,8" Click="OpenSource_Click">
@@ -402,7 +509,7 @@
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Data" Classes="h2"/>
                 <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                           ToolTip.Tip="This folder holds the downloaded bootstrapper, your local FastFlags cache, and app settings – never your Pekora client install itself."/>
+                           ToolTip.Tip="This folder holds the downloaded bootstrapper, your local FastFlags cache, and app settings - never your Korone client install itself."/>
               </StackPanel>
               <TextBlock Text="Downloaded files and FastFlags live outside the install folder, so an uninstall never leaves game data behind unexpectedly." Classes="subtle" TextWrapping="Wrap"/>
               <Button x:Name="BtnOpenAppData" Content="Open App Data Folder" Classes="secondary" HorizontalAlignment="Left"/>

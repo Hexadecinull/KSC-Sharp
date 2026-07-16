@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="KSCSharp.App.Views.LoadingWindow"
+        Icon="avares://KSC-Sharp.App/Assets/icon.png"
+        Title="KSC-Sharp"
+        Width="400" Height="160"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="Full"
+        Background="{DynamicResource SurfaceBrush}">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+
+    <StackPanel Orientation="Horizontal" Spacing="10">
+      <Image Source="avares://KSC-Sharp.App/Assets/icon.png" Width="28" Height="28"/>
+      <TextBlock Text="Korone" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="1" x:Name="StatusText" Text="Starting..." Classes="subtle" VerticalAlignment="Center" Margin="0,10" TextWrapping="Wrap"/>
+
+    <StackPanel Grid.Row="2" Spacing="10">
+      <ProgressBar x:Name="LoadingProgress" IsIndeterminate="True" Height="6" Foreground="{DynamicResource AccentBrush}"/>
+      <Button x:Name="BtnClose" Content="Close" Classes="secondary" HorizontalAlignment="Right" IsVisible="False"/>
+    </StackPanel>
+
+  </Grid>
+</Window>

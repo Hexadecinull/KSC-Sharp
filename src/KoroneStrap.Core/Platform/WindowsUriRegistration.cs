@@ -31,11 +31,24 @@ public static class WindowsUriRegistration
 
             var commandValue = $"\"{exePath}\" --uri \"%1\"";
 
-            using var baseKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{KoroneConfig.UriScheme}");
-            baseKey?.SetValue("URL Protocol", "", RegistryValueKind.String);
+            using (var baseKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{KoroneConfig.UriScheme}"))
+            {
+                baseKey?.SetValue("", $"URL:{KoroneConfig.ProductName} Protocol", RegistryValueKind.String);
+                baseKey?.SetValue("URL Protocol", "", RegistryValueKind.String);
+            }
 
-            using var shellKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{KoroneConfig.UriScheme}\shell\open\command");
-            shellKey?.SetValue("", commandValue, RegistryValueKind.String);
+            using (var shellKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{KoroneConfig.UriScheme}\shell\open\command"))
+            {
+                shellKey?.SetValue("", commandValue, RegistryValueKind.String);
+            }
+
+            // Read back what was actually written rather than assuming SetValue silently
+            // succeeded - CreateSubKey/SetValue can return without throwing even when the
+            // value didn't end up as expected (e.g. redirected/virtualized registry views).
+            using var verifyKey = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{KoroneConfig.UriScheme}\shell\open\command");
+            var written = verifyKey?.GetValue("") as string;
+            if (!string.Equals(written, commandValue, StringComparison.Ordinal))
+                return (false, "URI scheme registration didn't verify - the registry value wasn't what was written. Try running as the same user that will open links, and check for a Group Policy blocking HKCU\\Software\\Classes writes.");
 
             return (true, $"Registered URI scheme: {KoroneConfig.UriScheme}://");
         }

@@ -8,6 +8,7 @@ using KSCSharp.Core.Diagnostics;
 using KSCSharp.Core.Discord;
 using KSCSharp.Core.Models;
 using KSCSharp.Core.Platform;
+using KSCSharp.Core.Studio;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private readonly FastFlagsManager _flagsManager = new();
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly DiscordRpcManager _discord = new();
+    private readonly StudioSettings _studioSettings = StudioSettings.Load();
     private Button[] _navButtons = Array.Empty<Button>();
     private Control[] _pages = Array.Empty<Control>();
     private List<(string Name, int Page)> _searchMatches = new();
@@ -31,12 +33,13 @@ public partial class MainWindow : Window
     {
         ("Launch", 0), ("2017", 0), ("2018", 0), ("2020", 0), ("2021", 0),
         ("Bootstrapper", 0), ("Download / Update", 0), ("Run Bootstrapper", 0),
+        ("Korone Studio", 0), ("Manage Korone Studio", 0), ("Scan drives", 0),
 
         ("Integrations", 1),
         ("Activity Tracking", 1), ("Enable activity tracking", 1), ("Query server details", 1),
         ("Discord Rich Presence", 1), ("Enable Discord Rich Presence", 1), ("Show game activity", 1),
-        ("Discord status display", 1), ("Allow activity joining", 1), ("Show Pekora account", 1),
-        ("Window Manipulation", 1), ("Enable window manipulation", 1),
+        ("Discord status display", 1), ("Allow activity joining", 1), ("Show Korone account", 1),
+        ("Window Manipulation", 1), ("Enable window manipulation", 1), ("Borderless Fullscreen", 1),
         ("Custom Integrations", 1), ("URI Scheme", 1), ("Windows", 1), ("Linux", 1), ("Wine", 1),
 
         ("FastFlags", 2), ("Fast Flag Editor", 2), ("Allow KSC-Sharp to manage Fast Flags", 2),
@@ -68,6 +71,7 @@ public partial class MainWindow : Window
         WireWindowManipulation();
         WireFastFlagsPage();
         WireGlobalSettings();
+        WireStudio();
 
         BtnFastFlags.Click += (_, _) => ShowPage(2);
         BtnDownloadBootstrapper.Click += BtnDownloadBootstrapper_Click;
@@ -160,13 +164,24 @@ public partial class MainWindow : Window
             else
                 _navButtons[i].Classes.Remove("selected");
         }
+
+        // Navigating away always dismisses any open search results, so they can't linger
+        // over (or under) whatever page is now showing.
+        DismissSearch();
     }
 
     // ----- Sidebar search -----
 
     private void WireSearch()
     {
-        SearchBox.TextChanged += (_, _) => UpdateSearchResults(SearchBox.Text ?? "");
+        SearchBox.TextChanged += (_, _) =>
+        {
+            var text = SearchBox.Text ?? "";
+            BtnClearSearch.IsVisible = text.Length > 0;
+            UpdateSearchResults(text);
+        };
+
+        BtnClearSearch.Click += (_, _) => DismissSearch();
 
         SearchResultsList.SelectionChanged += (_, _) =>
         {
@@ -174,10 +189,18 @@ public partial class MainWindow : Window
             if (index < 0 || index >= _searchMatches.Count)
                 return;
 
-            ShowPage(_searchMatches[index].Page);
-            SearchBox.Text = string.Empty;
-            SearchResultsPanel.IsVisible = false;
+            var target = _searchMatches[index].Page;
+            DismissSearch();
+            ShowPage(target);
         };
+    }
+
+    private void DismissSearch()
+    {
+        SearchBox.Text = string.Empty;
+        BtnClearSearch.IsVisible = false;
+        SearchResultsPanel.IsVisible = false;
+        _searchMatches = new();
     }
 
     private void UpdateSearchResults(string query)
@@ -235,6 +258,15 @@ public partial class MainWindow : Window
             foreach (var failure in result.Failures)
                 AppendLog($"[!] {failure}");
 
+            if (result.TargetsWritten > 0)
+            {
+                var mismatches = _flagsManager.VerifyGraphicsApiApplied(_settings.GraphicsApi);
+                foreach (var mismatch in mismatches)
+                    AppendLog($"[!] Graphics API verification: {mismatch}");
+                if (mismatches.Count == 0)
+                    AppendLog($"[*] Graphics API verified: {_settings.GraphicsApi}.");
+            }
+
             AppendLog($"Launching {version.DisplayName} ({version.FolderName})...");
             var exePath = VersionLocator.FindExecutable(version.FolderName);
             if (exePath is null)
@@ -254,12 +286,23 @@ public partial class MainWindow : Window
 
             if (_settings.WindowManipulationEnabled && WindowManipulator.IsSupported)
             {
+                var applyBorderless = _settings.BorderlessFullscreenVulkan && _settings.GraphicsApi == GraphicsApi.Vulkan;
                 _ = Task.Run(() =>
                 {
                     var handle = WindowManipulator.FindMainWindowHandle(process.Id);
-                    AppendLog(handle is null
-                        ? "[!] Window manipulation: couldn't find the client's window handle."
-                        : $"[*] Window manipulation: found window handle for {version.DisplayName}.");
+                    if (handle is null)
+                    {
+                        AppendLog("[!] Window manipulation: couldn't find the client's window handle.");
+                        return;
+                    }
+
+                    AppendLog($"[*] Window manipulation: found window handle for {version.DisplayName}.");
+
+                    if (applyBorderless)
+                    {
+                        var ok = WindowManipulator.SetFakeBorderlessFullscreen(handle.Value);
+                        AppendLog(ok ? "[*] Borderless fullscreen applied." : "[!] Borderless fullscreen failed to apply.");
+                    }
                 });
             }
         }
@@ -353,6 +396,169 @@ public partial class MainWindow : Window
             : "Not downloaded yet.";
     }
 
+    // ----- Korone Studio -----
+
+    private void WireStudio()
+    {
+        BuildStudioButtons();
+        RefreshStudioManageList();
+        BtnScanDrives.Click += BtnScanDrives_Click;
+    }
+
+    private void BuildStudioButtons()
+    {
+        StudioButtonsPanel.Children.Clear();
+
+        foreach (var year in KoroneConfig.StudioDownloadUrls.Keys)
+        {
+            var located = _studioSettings.Installs.TryGetValue(year, out var info) && !string.IsNullOrEmpty(info.Path);
+
+            var button = new Button
+            {
+                Content = $"Studio {year}",
+                Classes = { "versiontile" },
+                Margin = new Avalonia.Thickness(0, 0, 10, 10),
+                Width = 130,
+                IsEnabled = located,
+            };
+
+            ToolTip.SetTip(button, located
+                ? $"Launch Studio {year} ({_studioSettings.Installs[year].Path})"
+                : $"Studio {year} hasn't been located yet - scan drives or install it below.");
+
+            if (located)
+                button.Click += (_, _) => LaunchStudio(year);
+
+            StudioButtonsPanel.Children.Add(button);
+        }
+    }
+
+    private void LaunchStudio(string year)
+    {
+        if (!_studioSettings.Installs.TryGetValue(year, out var info) || string.IsNullOrEmpty(info.Path))
+        {
+            AppendLog($"[!] Studio {year} isn't located yet.");
+            return;
+        }
+
+        try
+        {
+            StudioManager.Launch(info.Path);
+            AppendLog($"[+] Launched Studio {year}.");
+        }
+        catch (ProcessLaunchException ex)
+        {
+            AppendLog($"[!] {ex.Message}");
+        }
+    }
+
+    private async void BtnScanDrives_Click(object? sender, RoutedEventArgs e)
+    {
+        StudioScanStatusText.Text = "Scanning drives... this can take a while.";
+        BtnScanDrives.IsEnabled = false;
+
+        try
+        {
+            var results = await Task.Run(() => StudioManager.ScanDrivesForStudio().ToList());
+
+            foreach (var found in results)
+            {
+                var info = _studioSettings.GetOrCreate(found.Year);
+                info.Path = found.Path;
+            }
+            _studioSettings.Save();
+
+            StudioScanStatusText.Text = results.Count > 0
+                ? $"Found {results.Count} install(s): {string.Join(", ", results.Select(r => $"{r.Year} ({r.Path})"))}"
+                : "No Korone Studio installs found on this drive scan.";
+
+            BuildStudioButtons();
+            RefreshStudioManageList();
+        }
+        catch (Exception ex)
+        {
+            StudioScanStatusText.Text = $"Scan failed: {ex.Message}";
+        }
+        finally
+        {
+            BtnScanDrives.IsEnabled = true;
+        }
+    }
+
+    private void RefreshStudioManageList()
+    {
+        StudioManageList.Items.Clear();
+
+        foreach (var year in KoroneConfig.StudioDownloadUrls.Keys)
+        {
+            var located = _studioSettings.Installs.TryGetValue(year, out var info) && !string.IsNullOrEmpty(info.Path);
+
+            var row = new Grid { Margin = new Avalonia.Thickness(0, 6) };
+            row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+            row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+
+            var label = new TextBlock
+            {
+                Text = located ? $"{year} – {_studioSettings.Installs[year].Path}" : $"{year} – not located",
+                Classes = { "subtle" },
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(label, 0);
+            row.Children.Add(label);
+
+            var checkButton = new Button { Content = "Check for Update", Classes = { "ghost" }, Margin = new Avalonia.Thickness(0, 0, 8, 0), IsEnabled = located };
+            Grid.SetColumn(checkButton, 1);
+            checkButton.Click += async (_, _) => await CheckStudioUpdateAsync(year);
+            row.Children.Add(checkButton);
+
+            var installButton = new Button { Content = located ? "Reinstall" : "Download && Install", Classes = { "secondary" } };
+            Grid.SetColumn(installButton, 2);
+            installButton.Click += async (_, _) => await InstallStudioAsync(year);
+            row.Children.Add(installButton);
+
+            StudioManageList.Items.Add(row);
+        }
+    }
+
+    private async Task CheckStudioUpdateAsync(string year)
+    {
+        AppendLog($"[*] Checking Studio {year} for updates...");
+        var remote = await StudioManager.GetRemoteFingerprintAsync(year);
+        var known = _studioSettings.Installs.TryGetValue(year, out var info) ? info.LastKnownRemoteFingerprint : null;
+
+        if (remote is null)
+        {
+            AppendLog($"[!] Studio {year}: couldn't reach the server to check.");
+        }
+        else if (known is null)
+        {
+            AppendLog($"[*] Studio {year}: no prior fingerprint on record - can't tell if it's changed. Reinstalling will record one.");
+        }
+        else if (remote == known)
+        {
+            AppendLog($"[*] Studio {year} is up to date.");
+        }
+        else
+        {
+            AppendLog($"[!] Studio {year} has an update available - use Reinstall to get it.");
+        }
+    }
+
+    private async Task InstallStudioAsync(string year)
+    {
+        var targetDir = _studioSettings.Installs.TryGetValue(year, out var existing) && !string.IsNullOrEmpty(existing.Path)
+            ? existing.Path!
+            : System.IO.Path.Combine(KoroneConfig.AppDataDirectory, "Studio", year);
+
+        AppendLog($"[*] Downloading Studio {year} to {targetDir}...");
+        var ok = await StudioManager.DownloadAndInstallAsync(year, targetDir);
+        AppendLog(ok ? $"[+] Studio {year} installed to {targetDir}." : $"[!] Studio {year} install failed.");
+
+        BuildStudioButtons();
+        RefreshStudioManageList();
+    }
+
     // ----- Integrations: Activity tracking -----
 
     private void WireActivityTracking()
@@ -411,6 +617,10 @@ public partial class MainWindow : Window
         ToggleDiscordJoining.IsChecked = _settings.DiscordAllowJoining;
         ToggleDiscordAccount.IsChecked = _settings.DiscordShowAccount;
         ComboDiscordDisplay.SelectedIndex = _settings.DiscordShowDetails ? 1 : 0;
+
+        ShowAccountStatusText.Text = _settings.LastKnownUserId is { } id
+            ? $"Last known account id: {id} (from the last join link you opened)."
+            : "No account id on record yet - open a join link through KSC-Sharp at least once.";
 
         if (_settings.DiscordEnabled)
             TryConnectDiscord();
@@ -484,10 +694,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        var state = _settings.DiscordShowDetails ? $"{version.DisplayName} client" : null;
+        if (_settings.DiscordShowAccount && _settings.LastKnownUserId is { } id)
+            state = state is null ? $"Account {id}" : $"{state} · Account {id}";
+
         var activity = new DiscordActivity
         {
             Details = $"Playing {KoroneConfig.ProductName}",
-            State = _settings.DiscordShowDetails ? $"{version.DisplayName} client" : null,
+            State = state,
             StartTimestamp = DateTimeOffset.UtcNow,
             LargeImageKey = KoroneConfig.DiscordLargeImageKey,
             LargeImageText = KoroneConfig.DiscordLargeImageText,
@@ -506,6 +720,9 @@ public partial class MainWindow : Window
     private void WireWindowManipulation()
     {
         ToggleWindowManipulation.IsChecked = _settings.WindowManipulationEnabled;
+        ToggleBorderlessVulkan.IsChecked = _settings.BorderlessFullscreenVulkan;
+        ApplyBorderlessGate();
+
         ToggleWindowManipulation.Click += (_, _) =>
         {
             _settings.WindowManipulationEnabled = ToggleWindowManipulation.IsChecked == true;
@@ -514,6 +731,18 @@ public partial class MainWindow : Window
             if (_settings.WindowManipulationEnabled && !WindowManipulator.IsSupported)
                 AppendLog("[!] Window manipulation is only implemented on Windows so far.");
         };
+
+        ToggleBorderlessVulkan.Click += (_, _) =>
+        {
+            _settings.BorderlessFullscreenVulkan = ToggleBorderlessVulkan.IsChecked == true;
+            _settings.Save();
+        };
+    }
+
+    /// <summary>Borderless Fullscreen for Vulkan only makes sense (and is only interactive) when Vulkan is the selected Graphics API.</summary>
+    private void ApplyBorderlessGate()
+    {
+        ToggleBorderlessVulkan.IsEnabled = _settings.GraphicsApi == GraphicsApi.Vulkan;
     }
 
     // ----- Integrations: Windows / Linux -----
@@ -605,6 +834,7 @@ public partial class MainWindow : Window
         {
             _settings.GraphicsApi = (GraphicsApi)ComboGraphicsApi.SelectedIndex;
             _settings.Save();
+            ApplyBorderlessGate();
         };
 
         NumFramerateLimit.ValueChanged += (_, _) =>

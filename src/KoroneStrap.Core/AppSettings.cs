@@ -25,8 +25,18 @@ public class AppSettings
     public bool DiscordAllowJoining { get; set; }
     public bool DiscordShowAccount { get; set; }
 
+    /// <summary>
+    /// Captured from the userId param of a pekora-player:// join link (see KoroneUriParser),
+    /// never from reading any credential/auth storage. Only ever populated by join links, so
+    /// it won't be set for clients launched directly from the Launch tab.
+    /// </summary>
+    public string? LastKnownUserId { get; set; }
+
     // Custom Integrations
     public bool WindowManipulationEnabled { get; set; }
+
+    /// <summary>Only meaningful (and only enabled in the UI) when GraphicsApi is Vulkan.</summary>
+    public bool BorderlessFullscreenVulkan { get; set; }
 
     // FastFlags - the management toggle defaults to true (opt-out, not opt-in), since
     // disabling it is meant to be an explicit "stop touching my client" switch.

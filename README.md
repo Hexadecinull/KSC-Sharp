@@ -2,7 +2,7 @@
   <img width="110" height="110" alt="KSC-Sharp logo" src="KSCSL.png" />
 </p>
 <h1 align="center">KSC-Sharp</h1>
-<p align="center"><i>A fast, modern bootstrapper for Korone (Pekora), built for Windows, Linux, and macOS.</i></p>
+<p align="center"><i>A fast, modern bootstrapper for Korone, built for Windows, Linux, and macOS.</i></p>
 
 <p align="center">
   <a href="https://github.com/Hexadecinull/KSC-Sharp/releases"><b>Download</b></a> ·
@@ -14,7 +14,7 @@
 
 ## What is this?
 
-[Korone](https://pekora.zip) (also called Pekora) is a Roblox-revival platform that lets you
+[Korone](https://pekora.zip) (formerly known as Pekora) is a Roblox-revival platform that lets you
 play both current and legacy client builds. Like any Roblox-style client, it needs a small
 launcher program – a **bootstrapper** – that downloads and keeps the game client up to date,
 handles `pekora-player://` join links from the browser, and lets you tweak client-side settings.
@@ -30,7 +30,7 @@ and – unlike either of those – runs natively on Windows, Linux, and macOS fr
 - **FastFlags editor** – add, edit, and apply client-side FastFlags without hand-editing JSON.
 - **Global Settings presets** – switch graphics API (Direct3D/OpenGL/Vulkan, experimental) and
   unlock the framerate limit, without touching raw FastFlags yourself.
-- **Bootstrapper management** – download/update the official Pekora bootstrapper and run it
+- **Bootstrapper management** – download/update the official Korone bootstrapper and run it
   directly from the app.
 - **Link handling** – registers `pekora-player://` so join links from the browser open straight
   into KSC-Sharp (Windows registry on Windows, a desktop entry + MIME handler on Linux).
@@ -38,6 +38,9 @@ and – unlike either of those – runs natively on Windows, Linux, and macOS fr
   granular controls Bloxstrap offers (see [Discord Rich Presence](#discord-rich-presence)).
 - **Server details lookup** – see the rough location of the game server you're currently
   connected to.
+- **Korone Studio support** (Experimental) – locate, install, update, and launch Studio
+  2017/2018/2020/2021 independently.
+- **A loading window for join links** instead of launching silently in the background.
 - **Sidebar search** – jump straight to any feature by name instead of hunting through tabs.
 - **Runs on Linux and macOS**, not just Windows, launching the Windows client through Wine.
 - **A real uninstaller** on Windows – removing KSC-Sharp also unregisters the link handler and
@@ -58,7 +61,7 @@ already on your system (the installer doesn't currently bundle it).
 
 ### Linux & macOS
 
-The Pekora client is a Windows program, so on Linux and macOS it runs under
+The Korone client is a Windows program, so on Linux and macOS it runs under
 [Wine](https://www.winehq.org/). Install Wine first (`wine64` or `wine` needs to be reachable –
 on macOS via [Homebrew](https://brew.sh) (`brew install --cask wine-stable`), MacPorts, or
 [CrossOver](https://www.codeweavers.com/crossover); on Linux via your distro's package manager
@@ -107,8 +110,9 @@ on, plus the Discord desktop app installed and running. Off by default:
   which client year. Defaults to Name.
 - **Allow activity joining** – lets friends join your game directly from your Discord profile.
   Off by default, and outbound-only for now (see the ⓘ next to it in-app).
-- **Show Pekora account** – not yet functional; KSC-Sharp doesn't currently detect which
-  account is logged in, and this deliberately isn't faked.
+- **Show Korone account** – only ever populated from the userId in a join link you opened
+  through KSC-Sharp, never by reading account credentials. Only works after joining a game via
+  a `pekora-player://` link at least once; direct in-app launches don't carry an account id.
 
 This requires the Discord desktop app to be installed and running.
 
@@ -125,16 +129,39 @@ Under Integrations → Activity tracking. Reads the client's own log file for th
 joined, then looks up its rough location (city/region/country) via a public IP lookup – this
 doesn't go through pekora.zip or need a proxy, it's a direct lookup against the server IP
 itself. What's unverified: the log line this looks for is Roblox's well-documented format,
-which Pekora likely shares since it's Roblox-compatible, but that hasn't been confirmed
-against a real Pekora log. If "Check Now" never finds anything, that's the first thing to
+which Korone likely shares since it's Roblox-compatible, but that hasn't been confirmed
+against a real Korone log. If "Check Now" never finds anything, that's the first thing to
 check – see `ServerLocator.cs`.
 
 ### Window manipulation
 
-Under Integrations. Lets KSC-Sharp look up the running client's window handle – groundwork for
-future features (always-on-top, custom title bar, etc.), not a feature in itself yet. Windows
-only for now; Linux (X11/Wayland) and macOS (Cocoa) use entirely different windowing APIs that
-would need separate implementations.
+Under Integrations. **Enable window manipulation** lets KSC-Sharp look up the running client's
+window handle – groundwork for future features (always-on-top, custom title bar, etc.), not a
+feature in itself yet. Windows only for now; Linux (X11/Wayland) and macOS (Cocoa) use entirely
+different windowing APIs that would need separate implementations.
+
+**Enable Borderless Fullscreen for Vulkan** builds on that: real window manipulation (strips the
+title bar/border, resizes to the display), not a FastFlag. Vulkan always forces exclusive
+fullscreen regardless of client settings, so getting a *borderless* window out of it has to
+happen at the window level instead. Only interactive when Graphics API (under Global Settings)
+is set to Vulkan.
+
+### Join links
+
+Opening a `pekora-player://` link now shows a small loading window with live status – "Reading
+link...", "Preparing the client...", "Starting Korone..." – instead of silently launching (or
+silently failing) in the background. If something's wrong (client not found, launch failed), it
+shows the error there instead of just doing nothing.
+
+### Korone Studio
+
+Under the Launch tab (Experimental). Locate, install, update-check, and launch Studio
+2017/2018/2020/2021 independently – they're separate portable installs, not one shared thing.
+
+Because a portable install can be anywhere, locating one requires an explicit **Scan drives for
+Korone Studio** click under Manage Korone Studio – this never happens automatically, and can
+take a while on a large drive. Update checks compare the server's file signature against what
+was recorded at install time rather than downloading the whole archive just to check.
 
 ### Global Settings presets
 
@@ -142,11 +169,11 @@ Under Global Settings → Presets → Rendering and Graphics:
 
 - **Current Graphics API** (Experimental) – switch between Direct3D, OpenGL, and Vulkan.
   This uses real, documented Roblox-engine flags (`FFlagDebugGraphicsPreferD3D11` /
-  `...PreferOpenGL` / `...PreferVulkan`), not injection – Pekora being Roblox-compatible,
+  `...PreferOpenGL` / `...PreferVulkan`), not injection – Korone being Roblox-compatible,
   these very likely work the same way, though that hasn't been confirmed against a real
-  Pekora install. Worth knowing: official Roblox added a server-side allowlist for which
+  Korone install. Worth knowing: official Roblox added a server-side allowlist for which
   FastFlags actually take effect in September 2025; these particular flags are confirmed to
-  be on it, but that's Roblox's own policy, and Pekora – especially the older client years
+  be on it, but that's Roblox's own policy, and Korone – especially the older client years
   this app supports, which predate that allowlist entirely – may or may not follow it. That
   uncertainty, not a bug in this app, is why it's marked Experimental.
 - **Framerate Limit** – unlocks the client's FPS cap (`DFIntTaskSchedulerTargetFps`, default

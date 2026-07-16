@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="KSC-Sharp" Language="1033" Version="1.2.0.0" Manufacturer="SSMG4" UpgradeCode="PUT-GUID-HERE">
+  <Product Id="*" Name="KSC-Sharp" Language="1033" Version="1.3.0.0" Manufacturer="SSMG4" UpgradeCode="PUT-GUID-HERE">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" />
 
     <MediaTemplate />
