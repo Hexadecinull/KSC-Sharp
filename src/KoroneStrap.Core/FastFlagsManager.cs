@@ -124,6 +124,7 @@ public class FastFlagsManager
         var flags = Load();
         EngineFlags.ApplyGraphicsApi(flags, settings.GraphicsApi);
         flags[EngineFlags.TaskSchedulerTargetFps] = settings.FramerateLimit;
+        EngineFlags.ApplyMeshDetail(flags, settings.MeshDetailReduced);
         return flags;
     }
 

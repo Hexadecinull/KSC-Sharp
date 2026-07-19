@@ -148,6 +148,20 @@
       <Setter Property="Background" Value="{DynamicResource AccentLightBrush}"/>
     </Style>
 
+    <!-- Sidebar search box: FluentTheme's :pointerover/:focus states set Background on an
+         inner template part directly, which silently overrides a plain Background="..."
+         attribute set on the TextBox itself - that's why it looked fine until clicked. -->
+    <Style Selector="TextBox.searchinput, TextBox.searchinput:pointerover, TextBox.searchinput:focus, TextBox.searchinput:focus-within">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBox.searchinput /template/ Border#PART_BorderElement,
+                     TextBox.searchinput:pointerover /template/ Border#PART_BorderElement,
+                     TextBox.searchinput:focus /template/ Border#PART_BorderElement,
+                     TextBox.searchinput:focus-within /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="#332C58"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
     <Style Selector="ListBoxItem.searchresult">
       <Setter Property="Padding" Value="10,7"/>
       <Setter Property="CornerRadius" Value="6"/>

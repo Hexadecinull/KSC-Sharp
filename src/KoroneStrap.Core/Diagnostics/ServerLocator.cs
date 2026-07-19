@@ -10,15 +10,26 @@ public record ServerLocation(string Ip, string? City, string? Region, string? Co
 
 public static class ServerLocator
 {
-    // Roblox's client log contains a line like:
+    // Log directory ("%LocalAppData%\Roblox\logs\") is CONFIRMED real - Korone's own official
+    // KoroneStrap Discord RPC client (github.com/.../KoroneStrap) watches that exact path. What's
+    // still unverified is the line format within those logs: Roblox's client log contains a
+    // line like:
     //   ... [FLog::Network] UDMUX Address = 128.116.15.100, StartTime = ...
     // when it joins a game server. This is publicly documented behavior (it's what every
-    // "Roblox server region" browser extension / Discord bot parses), and since Korone is
-    // Roblox-compatible it very likely logs the same way - but this hasn't been confirmed
-    // against an actual Korone log file. If it doesn't match, this regex is the one place
-    // to fix once a real sample log is available.
+    // "Roblox server region" browser extension / Discord bot parses), and Korone being
+    // Roblox-compatible it very likely logs the same way - but that specific line hasn't been
+    // confirmed against a real Korone log. If it doesn't match, this regex is the one place to
+    // fix once a real sample log is available.
     private static readonly Regex ServerAddressPattern =
         new(@"UDMUX Address\s*=\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})", RegexOptions.Compiled);
+
+    /// <summary>
+    /// The confirmed-real logs directory for the current platform - Korone's own official
+    /// Discord RPC client watches this exact path on Windows. Exposed for
+    /// KoroneActivityWatcher, which needs a single directory to watch rather than the full
+    /// fallback list FindLatestLogFile() checks.
+    /// </summary>
+    public static string PrimaryLogsDirectory => LogRoots().First();
 
     /// <summary>Finds the most recently modified client log file, across every install found.</summary>
     public static string? FindLatestLogFile()
@@ -124,12 +135,15 @@ public static class ServerLocator
 
     private static IEnumerable<string> LogRoots()
     {
-        // Same install-folder convention VersionLocator uses, just under "logs" instead of
-        // "Versions" - both live directly under the product's AppData folder.
+        // "Roblox" is CONFIRMED (not guessed) - Korone's own official Discord RPC client
+        // (KoroneStrap, K-major) watches %LocalAppData%\Roblox\logs\ directly. ProjectX/Pekora
+        // are kept as fallback candidates in case a given install differs.
+        var folders = new[] { "Roblox" }.Concat(KoroneConfig.InstallFolderNames);
+
         if (SystemInfo.IsWindows)
         {
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            foreach (var folder in KoroneConfig.InstallFolderNames)
+            foreach (var folder in folders)
                 yield return Path.Combine(localAppData, folder, "logs");
             yield break;
         }
@@ -137,10 +151,10 @@ public static class ServerLocator
         var user = Environment.UserName;
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-        foreach (var folder in KoroneConfig.InstallFolderNames)
+        foreach (var folder in folders)
             yield return Path.Combine(home, ".wine", "drive_c", "users", user, "AppData", "Local", folder, "logs");
 
-        foreach (var folder in KoroneConfig.InstallFolderNames)
+        foreach (var folder in folders)
             yield return Path.Combine(home, ".local", "share", "wineprefixes", folder.ToLowerInvariant(), "drive_c", "users", user, "AppData", "Local", folder, "logs");
     }
 }

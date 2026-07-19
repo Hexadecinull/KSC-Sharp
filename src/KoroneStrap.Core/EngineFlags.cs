@@ -24,6 +24,19 @@ public static class EngineFlags
 
     public const string TaskSchedulerTargetFps = "DFIntTaskSchedulerTargetFps";
 
+    /// <summary>
+    /// Mesh detail / LOD forcing pair, cited together across multiple independent FastFlags
+    /// references as "forces level of detail (LOD) on meshes to optimize performance." The
+    /// quality level int is commonly documented in the 1-21 range Roblox's own in-game
+    /// graphics slider uses; 1 forces the lowest tier. Genuinely less certain than the
+    /// Graphics API / Framerate flags above - the scraped sources describing it don't cleanly
+    /// pair each flag with its exact description, so this is the best-supported reading, not
+    /// a fully confirmed one.
+    /// </summary>
+    public const string ForceVoxelTechnology = "DFFlagDebugRenderForceTechnologyVoxel";
+    public const string MeshQualityLevelOverride = "DFIntDebugFRMQualityLevelOverride";
+    private const int LowestMeshQualityLevel = 1;
+
     /// <summary>Builds the flag set for a given graphics API choice, clearing the others.</summary>
     public static void ApplyGraphicsApi(Dictionary<string, object> flags, GraphicsApi api)
     {
@@ -45,6 +58,21 @@ public static class EngineFlags
             default:
                 flags[PreferD3D11] = true;
                 break;
+        }
+    }
+
+    /// <summary>Toggles the mesh-detail-reducing preset on or off.</summary>
+    public static void ApplyMeshDetail(Dictionary<string, object> flags, bool reduceMeshDetail)
+    {
+        if (reduceMeshDetail)
+        {
+            flags[ForceVoxelTechnology] = true;
+            flags[MeshQualityLevelOverride] = LowestMeshQualityLevel;
+        }
+        else
+        {
+            flags.Remove(ForceVoxelTechnology);
+            flags.Remove(MeshQualityLevelOverride);
         }
     }
 }

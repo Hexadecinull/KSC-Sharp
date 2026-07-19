@@ -72,14 +72,23 @@ public static class KoroneConfig
     };
 
     /// <summary>
-    /// Best-effort guess at the Studio executable name inside each extracted ZIP, inferred
-    /// from this project's own ClientExecutableName pattern (ProjectX + role + Beta) and
-    /// Bloxstrap's equivalent (RobloxPlayerBeta.exe / RobloxStudioBeta.exe use the same
-    /// Player/Studio naming split). NOT verified against a real extracted install - the ZIPs
-    /// are too large to fetch and inspect from here. If this is wrong, StudioManager's drive
-    /// scan just won't find anything, and this is the one constant to fix.
+    /// Candidate Studio executable names to search for during a drive scan, in priority order.
+    /// NOT verified against a real extracted install - the download ZIPs are too large to
+    /// fetch and inspect from here. "ProjectXStudioBeta.exe" is inferred from this project's
+    /// own confirmed Player executable name (ProjectXPlayerBeta.exe - confirmed via Korone's
+    /// own official Discord RPC client source) following the same Player/Studio naming split
+    /// Bloxstrap uses; the others are fallback guesses covering the branding variants seen
+    /// elsewhere in this project (Pekora-prefixed, no "Beta" suffix). If a scan finds nothing
+    /// on a drive known to have Studio installed, this list - not the scan algorithm - is the
+    /// first thing to double check.
     /// </summary>
-    public const string StudioExecutableName = "ProjectXStudioBeta.exe";
+    public static readonly string[] StudioExecutableCandidates =
+    {
+        "ProjectXStudioBeta.exe",
+        "PekoraStudioBeta.exe",
+        "ProjectXStudio.exe",
+        "PekoraStudio.exe",
+    };
 
     /// <summary>
     /// Per-user directory for files this app generates at runtime (downloaded bootstrapper,
@@ -121,15 +130,27 @@ public static class KoroneConfig
     };
 
     /// <summary>
-    /// Discord Application ID for Rich Presence. THIS IS A PLACEHOLDER - Rich Presence will
-    /// not work until this is replaced with a real application ID from
-    /// https://discord.com/developers/applications (create an app, copy its "Application ID").
+    /// Discord Application ID for Rich Presence - the real one, from Korone's own official
+    /// "KoroneStrap" Discord RPC client (github.com/.../KoroneStrap, K-major, distinct from
+    /// koroneStrap the Python bootstrapper this project is a rewrite of).
     /// </summary>
-    public const string DiscordClientId = "0000000000000000000";
+    public const string DiscordClientId = "1427467434155180115";
 
     /// <summary>
-    /// Rich Presence "Art Asset" key. Needs to be uploaded under the Discord application's
-    /// Rich Presence > Art Assets page with this exact name before it'll actually show an image.
+    /// Small-image badge key, also taken from the official KoroneStrap client's own presence
+    /// payload. The official client uses the large-image slot for the game's own icon (fetched
+    /// per-game via Korone's API, which this project doesn't integrate with) and this small
+    /// badge alongside it - so it's used the same way here, just next to our own app icon in
+    /// the large-image slot instead of a per-game one.
+    /// </summary>
+    public const string DiscordSmallImageKey = "kctatws";
+
+    /// <summary>
+    /// Rich Presence "Art Asset" key for the large image. Needs to be uploaded under the
+    /// Discord application's Rich Presence > Art Assets page with this exact name before it'll
+    /// actually show an image - unlike DiscordClientId/DiscordSmallImageKey, this specific key
+    /// name isn't from the official client (which uses a dynamic per-game icon URL here
+    /// instead), so it still needs a real upload to work.
     /// </summary>
     public const string DiscordLargeImageKey = "logo";
     public const string DiscordLargeImageText = ProductName;

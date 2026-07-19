@@ -1,5 +1,7 @@
 using KSCSharp.Core;
 using KSCSharp.Core.Platform;
+using System;
+using System.Threading.Tasks;
 
 namespace KSCSharp.App;
 

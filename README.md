@@ -53,7 +53,7 @@ Two kinds of builds are published:
 
 | | Best for |
 |---|---|
-| **Installer** (`KSC-Sharp-Setup-*.exe`, Windows only) | Everyday use. Installs properly, adds Start Menu shortcuts, registers the link handler, and uninstalls cleanly. |
+| **Installer** (`KSC-Sharp-Setup-*.exe`, Windows only – x64 and x86 both built) | Everyday use. Installs properly, adds Start Menu shortcuts, registers the link handler, and uninstalls cleanly. |
 | **Portable** (`KSC-Sharp-*.zip`) | Testing a specific build, or running on Linux/macOS. Just unzip and run – nothing is installed or registered until you ask it to be, from the Integrations page. |
 
 Requires the [.NET 8 runtime](https://dotnet.microsoft.com/download/dotnet/8.0) if it isn't
@@ -94,9 +94,11 @@ under Presets → Rendering and Graphics.
 
 ### Activity Tracking
 
-Found under Integrations, first section. **Enable activity tracking** lets KSC-Sharp detect
-what you're playing, which other features build on – right now that's just **Query server
-details** (see roughly where your current game server is hosted), gated behind this toggle.
+Found under Integrations, first section. **Enable activity tracking** watches for a
+`KORONESTRAPSDK` marker in Korone's own log file – the same public, non-credential channel
+Korone's own official Discord RPC client reads from – to pick up live status updates the game
+pushes. This feeds Discord's status text when Rich Presence is on, and gates **Query server
+details** (see roughly where your current game server is hosted).
 
 ### Discord Rich Presence
 
@@ -107,21 +109,35 @@ on, plus the Discord desktop app installed and running. Off by default:
 - **Show game activity** – whether the specific client/details are published once connected,
   separate from the connection itself (so you can stay "connected" without broadcasting details).
 - **Discord status display** – "Name" shows just that you're playing Korone; "Details" adds
-  which client year. Defaults to Name.
+  the live status from Activity Tracking if one's available, falling back to the client year.
+  Defaults to Name.
 - **Allow activity joining** – lets friends join your game directly from your Discord profile.
   Off by default, and outbound-only for now (see the ⓘ next to it in-app).
 - **Show Korone account** – only ever populated from the userId in a join link you opened
   through KSC-Sharp, never by reading account credentials. Only works after joining a game via
   a `pekora-player://` link at least once; direct in-app launches don't carry an account id.
 
+Every toggle above takes effect immediately if Rich Presence is already showing, not just on
+the next launch.
+
 This requires the Discord desktop app to be installed and running.
 
-> **Maintainer note:** Rich Presence needs a real Discord Application ID before it'll do
-> anything – `KoroneConfig.DiscordClientId` currently holds a placeholder. Create an app at
-> the [Discord Developer Portal](https://discord.com/developers/applications), copy its
-> Application ID in, and upload art matching `KoroneConfig.DiscordLargeImageKey` under that
-> app's Rich Presence → Art Assets page. Until that's done, the toggle works but Discord just
-> won't connect (this fails quietly – it's logged, not a crash).
+The Discord Application ID and small-image badge are Korone's own real, official ones – lifted
+directly from Korone's own "KoroneStrap" Discord RPC client source (K-major; a different,
+separate project from koroneStrap the Python bootstrapper this whole app is a rewrite of). What
+that official client also does, and this project deliberately doesn't: it authenticates to
+Korone's API using a login ticket to look up exactly which game and icon to show. Capturing or
+using an authentication ticket to make API calls as the user is treated the same as reading
+account credentials elsewhere in this project – a line not crossed here without it being an
+explicit, separate decision. In practice this means the large image is a static KSC-Sharp icon
+rather than a live per-game one, and the "Play Korone" button links to Korone generally rather
+than the specific game.
+
+> **Maintainer note:** the large-image art itself (`KoroneConfig.DiscordLargeImageKey`, `logo`)
+> still needs to be uploaded under the Discord application's Rich Presence → Art Assets page –
+> unlike the Application ID and small-image key, that specific key name isn't something the
+> official client's own source provided, since it uses a dynamic per-game icon URL there instead.
+> Until it's uploaded, Rich Presence connects and updates fine, it just won't show a large icon.
 
 ### Server details lookup
 
@@ -159,9 +175,17 @@ Under the Launch tab (Experimental). Locate, install, update-check, and launch S
 2017/2018/2020/2021 independently – they're separate portable installs, not one shared thing.
 
 Because a portable install can be anywhere, locating one requires an explicit **Scan drives for
-Korone Studio** click under Manage Korone Studio – this never happens automatically, and can
-take a while on a large drive. Update checks compare the server's file signature against what
-was recorded at install time rather than downloading the whole archive just to check.
+Korone Studio** click under Manage Korone Studio – this never happens automatically. The scan
+runs in parallel across directories (not one at a time) and skips known-slow, known-irrelevant
+locations (cloud-sync placeholder folders like OneDrive are the standout case – each file in
+one can trigger a network round-trip just to check if it exists, which is the single biggest
+known cause of a scan taking many minutes), with live "currently scanning: ..." progress and a
+Cancel button so a long scan is never indistinguishable from a hung one. It still checks a
+short list of plausible executable names rather than one fixed guess, since the real one isn't
+confirmed (the download ZIPs are too large to fetch and inspect directly) – if a scan finds
+nothing on a drive you know has Studio installed, that name list is the first thing to check.
+Update checks compare the server's file signature against what was recorded at install time
+rather than downloading the whole archive just to check.
 
 ### Global Settings presets
 
@@ -181,6 +205,20 @@ Under Global Settings → Presets → Rendering and Graphics:
   that, independent of KSC-Sharp.
 
 Both are applied alongside whatever's in the FastFlags editor whenever you launch a client.
+**Apply & Verify Now** applies the current presets immediately and reads them back from each
+installed client's settings file to confirm they actually stuck, without needing to launch a
+client and check the Log tab first.
+
+### FastFlags presets
+
+Under FastFlags → Presets → Geometry:
+
+- **Mesh detail** – forces lower-detail meshes for performance
+  (`DFFlagDebugRenderForceTechnologyVoxel` + `DFIntDebugFRMQualityLevelOverride`). Off by
+  default (normal engine detail). Worth flagging: this one is less certain than the Graphics
+  API / Framerate flags above – the sources describing it don't cleanly pair each flag with an
+  exact description, so this is the best-supported reading of what's available, not a fully
+  confirmed one.
 
 ## Building from source
 

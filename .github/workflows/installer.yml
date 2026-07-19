@@ -14,6 +14,14 @@ on:
 jobs:
   windows-installer:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            arch: x64
+          - rid: win-x86
+            arch: x86
 
     steps:
       - uses: actions/checkout@v6
@@ -36,8 +44,8 @@ jobs:
       - name: Restore
         run: dotnet restore KSC-Sharp.sln
 
-      - name: Publish app
-        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r win-x64 --self-contained false -o dist/win
+      - name: Publish app (${{ matrix.rid }})
+        run: dotnet publish src/KSC-Sharp.App/KSC-Sharp.App.csproj -c Release -r ${{ matrix.rid }} --self-contained false -o dist/${{ matrix.rid }}
 
       # windows-latest's underlying image doesn't ship Inno Setup by default (it was present
       # on the older Windows 2022 runner image, but was dropped from the Windows 2025 image) -
@@ -48,12 +56,12 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.value }} installer\Inno\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.value }} /DMyAppArch=${{ matrix.arch }} /DMySourceDir=..\..\dist\${{ matrix.rid }} installer\Inno\installer.iss
 
       - name: Upload installer
         uses: actions/upload-artifact@v7
         with:
-          name: KSC-Sharp-Setup-win-x64
+          name: KSC-Sharp-Setup-${{ matrix.rid }}
           path: installer/Inno/Output/*.exe
           if-no-files-found: error
           retention-days: 14

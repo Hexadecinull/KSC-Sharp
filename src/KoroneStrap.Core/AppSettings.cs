@@ -46,6 +46,9 @@ public class AppSettings
     public GraphicsApi GraphicsApi { get; set; } = GraphicsApi.Direct3D;
     public int FramerateLimit { get; set; } = 60;
 
+    // FastFlags page > Presets > Geometry
+    public bool MeshDetailReduced { get; set; }
+
     private static string DefaultPath => Path.Combine(KoroneConfig.AppDataDirectory, "settings.json");
 
     public static AppSettings Load(string? path = null)

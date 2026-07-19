@@ -24,7 +24,10 @@ public partial class MainWindow : Window
     private readonly FastFlagsManager _flagsManager = new();
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly DiscordRpcManager _discord = new();
+    private KoroneActivityWatcher? _activityWatcher;
+    private string? _latestPresenceState;
     private readonly StudioSettings _studioSettings = StudioSettings.Load();
+    private CancellationTokenSource? _studioScanCts;
     private Button[] _navButtons = Array.Empty<Button>();
     private Control[] _pages = Array.Empty<Control>();
     private List<(string Name, int Page)> _searchMatches = new();
@@ -121,6 +124,7 @@ public partial class MainWindow : Window
                 _discord.ClearActivity();
                 _discord.Disconnect();
             }
+            _activityWatcher?.Dispose();
         };
     }
 
@@ -284,11 +288,17 @@ public partial class MainWindow : Window
             UpdateDiscordActivity(version);
             HookProcessExitForDiscord(process);
 
-            if (_settings.WindowManipulationEnabled && WindowManipulator.IsSupported)
+            if (_settings.WindowManipulationEnabled && OperatingSystem.IsWindows())
             {
                 var applyBorderless = _settings.BorderlessFullscreenVulkan && _settings.GraphicsApi == GraphicsApi.Vulkan;
                 _ = Task.Run(() =>
                 {
+                    // Re-checked here (not just by the outer `if`): the platform-compat
+                    // analyzer treats this lambda as its own method body, so a guard in the
+                    // enclosing method doesn't count as covering calls inside it.
+                    if (!OperatingSystem.IsWindows())
+                        return;
+
                     var handle = WindowManipulator.FindMainWindowHandle(process.Id);
                     if (handle is null)
                     {
@@ -403,6 +413,7 @@ public partial class MainWindow : Window
         BuildStudioButtons();
         RefreshStudioManageList();
         BtnScanDrives.Click += BtnScanDrives_Click;
+        BtnCancelScan.Click += (_, _) => _studioScanCts?.Cancel();
     }
 
     private void BuildStudioButtons()
@@ -454,12 +465,21 @@ public partial class MainWindow : Window
 
     private async void BtnScanDrives_Click(object? sender, RoutedEventArgs e)
     {
-        StudioScanStatusText.Text = "Scanning drives... this can take a while.";
+        StudioScanStatusText.Text = "Scanning drives...";
+        StudioScanProgressText.IsVisible = true;
+        StudioScanProgressText.Text = "";
         BtnScanDrives.IsEnabled = false;
+        BtnCancelScan.IsVisible = true;
+
+        _studioScanCts = new CancellationTokenSource();
+        var progress = new Progress<string>(path =>
+        {
+            StudioScanProgressText.Text = $"Scanning: {path}";
+        });
 
         try
         {
-            var results = await Task.Run(() => StudioManager.ScanDrivesForStudio().ToList());
+            var results = await StudioManager.ScanDrivesForStudioAsync(progress, ct: _studioScanCts.Token);
 
             foreach (var found in results)
             {
@@ -475,6 +495,10 @@ public partial class MainWindow : Window
             BuildStudioButtons();
             RefreshStudioManageList();
         }
+        catch (OperationCanceledException)
+        {
+            StudioScanStatusText.Text = "Scan cancelled.";
+        }
         catch (Exception ex)
         {
             StudioScanStatusText.Text = $"Scan failed: {ex.Message}";
@@ -482,6 +506,10 @@ public partial class MainWindow : Window
         finally
         {
             BtnScanDrives.IsEnabled = true;
+            BtnCancelScan.IsVisible = false;
+            StudioScanProgressText.IsVisible = false;
+            _studioScanCts?.Dispose();
+            _studioScanCts = null;
         }
     }
 
@@ -512,7 +540,7 @@ public partial class MainWindow : Window
             checkButton.Click += async (_, _) => await CheckStudioUpdateAsync(year);
             row.Children.Add(checkButton);
 
-            var installButton = new Button { Content = located ? "Reinstall" : "Download && Install", Classes = { "secondary" } };
+            var installButton = new Button { Content = located ? "Reinstall" : "Download & Install", Classes = { "secondary" } };
             Grid.SetColumn(installButton, 2);
             installButton.Click += async (_, _) => await InstallStudioAsync(year);
             row.Children.Add(installButton);
@@ -590,6 +618,34 @@ public partial class MainWindow : Window
         BtnCheckServer.IsEnabled = enabled;
         if (!enabled)
             ServerDetailsText.Text = "Enable activity tracking first.";
+
+        if (enabled && _activityWatcher is null)
+        {
+            _activityWatcher = new KoroneActivityWatcher(OnPresenceStateChanged);
+            _activityWatcher.Start();
+            AppendLog("[*] Activity tracking started (watching Korone's own KORONESTRAPSDK log channel).");
+        }
+        else if (!enabled && _activityWatcher is not null)
+        {
+            _activityWatcher.Dispose();
+            _activityWatcher = null;
+            _latestPresenceState = null;
+        }
+    }
+
+    /// <summary>
+    /// Called from a background thread by KoroneActivityWatcher whenever the game pushes a
+    /// new presence-state string via the same log channel Korone's own official Discord RPC
+    /// client reads. Feeds it into the Discord state text live if Rich Presence is on.
+    /// </summary>
+    private void OnPresenceStateChanged(string state)
+    {
+        _latestPresenceState = state;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_settings.DiscordEnabled && _settings.DiscordShowActivity && _discord.IsConnected)
+                PublishDiscordActivity();
+        });
     }
 
     private async void BtnCheckServer_Click(object? sender, RoutedEventArgs e)
@@ -646,25 +702,42 @@ public partial class MainWindow : Window
         {
             _settings.DiscordShowActivity = ToggleDiscordShowActivity.IsChecked == true;
             _settings.Save();
+            RefreshDiscordActivityIfLive();
         };
 
         ComboDiscordDisplay.SelectionChanged += (_, _) =>
         {
             _settings.DiscordShowDetails = ComboDiscordDisplay.SelectedIndex == 1;
             _settings.Save();
+            RefreshDiscordActivityIfLive();
         };
 
         ToggleDiscordJoining.Click += (_, _) =>
         {
             _settings.DiscordAllowJoining = ToggleDiscordJoining.IsChecked == true;
             _settings.Save();
+            RefreshDiscordActivityIfLive();
         };
 
         ToggleDiscordAccount.Click += (_, _) =>
         {
             _settings.DiscordShowAccount = ToggleDiscordAccount.IsChecked == true;
             _settings.Save();
+            RefreshDiscordActivityIfLive();
         };
+    }
+
+    /// <summary>
+    /// Re-publishes the current Discord activity immediately after a settings change, if one
+    /// is already showing - previously every toggle here only saved the setting and waited for
+    /// the next external trigger (a fresh launch, or the next KORONESTRAPSDK log line) to take
+    /// visible effect, which looked like the toggle "didn't work" even though it had saved
+    /// correctly.
+    /// </summary>
+    private void RefreshDiscordActivityIfLive()
+    {
+        if (_settings.DiscordEnabled && _discord.IsConnected && _currentClientVersion is not null)
+            PublishDiscordActivity();
     }
 
     private void TryConnectDiscord()
@@ -676,17 +749,32 @@ public partial class MainWindow : Window
         AppendLog(ok ? "[*] Discord Rich Presence connected." : "[!] Discord Rich Presence: couldn't connect.");
     }
 
+    private ClientVersion? _currentClientVersion;
+    private DateTimeOffset? _currentSessionStart;
+
     private void UpdateDiscordActivity(ClientVersion version)
     {
+        _currentClientVersion = version;
+        _currentSessionStart = DateTimeOffset.UtcNow;
+
         if (!_settings.DiscordEnabled)
             return;
 
         if (!_discord.IsConnected)
             TryConnectDiscord();
 
-        if (!_discord.IsConnected)
-            return;
+        if (_discord.IsConnected)
+            PublishDiscordActivity();
+    }
 
+    /// <summary>
+    /// Builds and sends the current Discord activity from whatever's known right now: the
+    /// client that was launched (if any) and the latest presence-state string from
+    /// KoroneActivityWatcher (if activity tracking is on and the game has pushed one). Called
+    /// both right after launching a client and live whenever the watcher reports a change.
+    /// </summary>
+    private void PublishDiscordActivity()
+    {
         if (!_settings.DiscordShowActivity)
         {
             // Stay connected, but don't publish what we're playing.
@@ -694,7 +782,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var state = _settings.DiscordShowDetails ? $"{version.DisplayName} client" : null;
+        string? state = null;
+        if (_settings.DiscordShowDetails)
+        {
+            state = _latestPresenceState ?? (_currentClientVersion is { } v ? $"{v.DisplayName} client" : null);
+        }
+
         if (_settings.DiscordShowAccount && _settings.LastKnownUserId is { } id)
             state = state is null ? $"Account {id}" : $"{state} · Account {id}";
 
@@ -702,13 +795,20 @@ public partial class MainWindow : Window
         {
             Details = $"Playing {KoroneConfig.ProductName}",
             State = state,
-            StartTimestamp = DateTimeOffset.UtcNow,
+            StartTimestamp = _currentSessionStart ?? DateTimeOffset.UtcNow,
             LargeImageKey = KoroneConfig.DiscordLargeImageKey,
             LargeImageText = KoroneConfig.DiscordLargeImageText,
+            SmallImageKey = KoroneConfig.DiscordSmallImageKey,
             PartyId = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString() : null,
             PartySize = _settings.DiscordAllowJoining ? 1 : null,
             PartyMax = _settings.DiscordAllowJoining ? 4 : null,
             JoinSecret = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString("N") : null,
+            // A generic link, not a per-game one - the official Korone Discord RPC client can
+            // show a "View Game" button pointing at a specific game URL because it polls an
+            // authenticated API using a login ticket. KSC-Sharp doesn't do that (see
+            // KoroneActivityWatcher's doc comment), so this points at Korone generally instead
+            // of pretending to know which specific game is running.
+            Buttons = new[] { ("Play Korone", "https://pekora.zip") },
         };
 
         var ok = _discord.SetActivity(activity);
@@ -798,6 +898,13 @@ public partial class MainWindow : Window
             foreach (var failure in result.Failures)
                 AppendLog($"[!] {failure}");
         };
+
+        ToggleMeshDetail.IsChecked = _settings.MeshDetailReduced;
+        ToggleMeshDetail.Click += (_, _) =>
+        {
+            _settings.MeshDetailReduced = ToggleMeshDetail.IsChecked == true;
+            _settings.Save();
+        };
     }
 
     private async void OpenFastFlagEditor_Click(object? sender, RoutedEventArgs e)
@@ -842,6 +949,37 @@ public partial class MainWindow : Window
             _settings.FramerateLimit = (int)(NumFramerateLimit.Value ?? 60);
             _settings.Save();
         };
+
+        BtnVerifyGraphicsApi.Click += BtnVerifyGraphicsApi_Click;
+    }
+
+    /// <summary>
+    /// Applies the current Graphics API / Framerate / Mesh Detail presets to every installed
+    /// client right now and reads them back to confirm they stuck - previously this only ever
+    /// happened implicitly at launch time, with the result visible only in the Log tab. This
+    /// makes it a deliberate, visible action with its result shown right where the setting is.
+    /// </summary>
+    private void BtnVerifyGraphicsApi_Click(object? sender, RoutedEventArgs e)
+    {
+        GraphicsApiStatusText.Text = "Applying...";
+
+        var flags = _flagsManager.BuildEffectiveFlags(_settings);
+        var applyResult = _flagsManager.ApplyToInstalledClients(flags);
+
+        if (applyResult.TargetsWritten == 0)
+        {
+            GraphicsApiStatusText.Text = applyResult.Failures.Count > 0
+                ? $"Nothing applied: {string.Join("; ", applyResult.Failures)}"
+                : "No installed clients found to apply to.";
+            return;
+        }
+
+        var mismatches = _flagsManager.VerifyGraphicsApiApplied(_settings.GraphicsApi);
+        GraphicsApiStatusText.Text = mismatches.Count == 0
+            ? $"Verified: {_settings.GraphicsApi} applied to {applyResult.TargetsWritten} install(s)."
+            : $"Applied to {applyResult.TargetsWritten} install(s), but {mismatches.Count} didn't verify: {string.Join("; ", mismatches)}";
+
+        AppendLog($"[*] Graphics API apply & verify: {GraphicsApiStatusText.Text}");
     }
 
     // ----- About page -----

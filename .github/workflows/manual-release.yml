@@ -66,6 +66,8 @@ jobs:
             rid: linux-x64
           - os: windows-latest
             rid: win-x64
+          - os: windows-latest
+            rid: win-x86
           - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
@@ -100,14 +102,22 @@ jobs:
   installer:
     needs: [validate, build]
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            arch: x64
+          - rid: win-x86
+            arch: x86
     steps:
       - uses: actions/checkout@v6
 
-      - name: Download win-x64 build
+      - name: Download ${{ matrix.rid }} build
         uses: actions/download-artifact@v8
         with:
-          name: build-win-x64
-          path: dist/win
+          name: build-${{ matrix.rid }}
+          path: dist/${{ matrix.rid }}
 
       # windows-latest's image doesn't ship Inno Setup by default (dropped when the image
       # moved to Windows Server 2025) - install it explicitly rather than assume ISCC.exe is
@@ -118,12 +128,12 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ needs.validate.outputs.version }} installer\Inno\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ needs.validate.outputs.version }} /DMyAppArch=${{ matrix.arch }} /DMySourceDir=..\..\dist\${{ matrix.rid }} installer\Inno\installer.iss
 
       - name: Upload installer
         uses: actions/upload-artifact@v7
         with:
-          name: installer-win-x64
+          name: installer-${{ matrix.rid }}
           path: installer/Inno/Output/*.exe
           if-no-files-found: error
           retention-days: 3
@@ -144,10 +154,12 @@ jobs:
       - name: Package portable builds and checksums
         run: |
           mkdir -p dist
-          for rid in linux-x64 win-x64 osx-arm64; do
+          for rid in linux-x64 win-x64 win-x86 osx-arm64; do
             (cd "artifacts/build-$rid" && zip -qr "../../dist/KSC-Sharp-${{ needs.validate.outputs.version }}-$rid.zip" .)
           done
-          cp artifacts/installer-win-x64/*.exe "dist/KSC-Sharp-Setup-${{ needs.validate.outputs.version }}.exe"
+          for rid in win-x64 win-x86; do
+            cp artifacts/installer-$rid/*.exe "dist/"
+          done
           (cd dist && sha256sum * > checksums.sha256.txt)
           ls -la dist
 
@@ -184,22 +196,40 @@ jobs:
             *)            label="" ;;
           esac
 
-          if [ "$type" = "release" ]; then prerelease=false; else prerelease=true; fi
+          if [ "$type" = "release" ]; then prerelease_flag=""; else prerelease_flag="--prerelease"; fi
 
           echo "title=KSC-Sharp v${{ needs.validate.outputs.version }}$label" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "prerelease_flag=$prerelease_flag" >> "$GITHUB_OUTPUT"
 
+      # Uses the GitHub CLI (preinstalled on every hosted runner, first-party maintained)
+      # directly instead of a third-party action, wrapped in a retry loop. This is a direct
+      # response to a real failure seen here: GitHub's API returned a transient 500 ("Unicorn"
+      # error page) partway through a release run. gh CLI gives full control over retry
+      # behavior instead of depending on whether the community action retries internally.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ needs.validate.outputs.version }}
-          name: ${{ steps.meta.outputs.title }}
-          body_path: release-notes.md
-          draft: ${{ inputs.draft }}
-          prerelease: ${{ steps.meta.outputs.prerelease }}
-          files: |
-            dist/*.zip
-            dist/*.exe
-            dist/checksums.sha256.txt
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          tag="v${{ needs.validate.outputs.version }}"
+
+          draft_flag=""
+          if [ "${{ inputs.draft }}" = "true" ]; then draft_flag="--draft"; fi
+
+          attempt=1
+          max_attempts=3
+          until gh release create "$tag" \
+            --title "${{ steps.meta.outputs.title }}" \
+            --notes-file release-notes.md \
+            ${{ steps.meta.outputs.prerelease_flag }} \
+            $draft_flag \
+            dist/*.zip dist/*.exe dist/checksums.sha256.txt
+          do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "::error::gh release create failed after $max_attempts attempts."
+              exit 1
+            fi
+            echo "Release creation failed (attempt $attempt/$max_attempts) - this is usually a transient GitHub API error. Retrying in 15s..."
+            attempt=$((attempt + 1))
+            sleep 15
+          done

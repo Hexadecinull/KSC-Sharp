@@ -22,4 +22,10 @@ public record DiscordActivity
 
     /// <summary>Opaque secret a friend's client sends back if they click "Ask to Join".</summary>
     public string? JoinSecret { get; init; }
+
+    /// <summary>
+    /// Up to 2 (Label, Url) buttons shown on the activity card. Discord requires http(s) URLs
+    /// here - a custom pekora-player:// URI isn't accepted.
+    /// </summary>
+    public IReadOnlyList<(string Label, string Url)>? Buttons { get; init; }
 }

@@ -151,6 +151,16 @@ public sealed class DiscordIpcClient : IDisposable
         if (activity.JoinSecret is not null)
             dict["secrets"] = new Dictionary<string, object?> { ["join"] = activity.JoinSecret };
 
+        if (activity.Buttons is { Count: > 0 })
+        {
+            // Discord IPC only accepts up to 2 buttons; silently trim rather than throw, since
+            // a caller passing 3 shouldn't crash the whole activity update over it.
+            dict["buttons"] = activity.Buttons
+                .Take(2)
+                .Select(b => new Dictionary<string, object?> { ["label"] = b.Label, ["url"] = b.Url })
+                .ToArray();
+        }
+
         return dict;
     }
 

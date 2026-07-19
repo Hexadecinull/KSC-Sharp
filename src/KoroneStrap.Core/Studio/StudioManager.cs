@@ -10,78 +10,94 @@ public record StudioScanResult(string Year, string Path);
 public static class StudioManager
 {
     /// <summary>
-    /// Scans available drives for KoroneConfig.StudioExecutableName, up to a bounded depth so
-    /// this can't turn into an unbounded, all-night filesystem crawl. Call this ONLY after
-    /// explicit user consent - it walks the entire selected drive(s) and can take a while.
-    /// Known-noisy system directories are skipped, and any access error just skips that
-    /// branch rather than aborting the whole scan.
+    /// Scans available drives for any of KoroneConfig.StudioExecutableCandidates, in parallel
+    /// across subdirectories, up to a bounded depth so this can't turn into an unbounded
+    /// all-night crawl. Call this ONLY after explicit user consent - it walks the selected
+    /// drive(s) and can still take a while on a large one, though far less than a naive
+    /// single-threaded walk.
+    ///
+    /// Speed comes from three things, in order of impact:
+    ///  1. Parallel directory enumeration (bounded concurrency) instead of strictly serial
+    ///     depth-first recursion - directory listing is I/O-bound, so multiple concurrent
+    ///     requests generally finish far faster than one at a time, especially on SSDs.
+    ///  2. Aggressive, specific pruning of directories that are large, irrelevant, and/or
+    ///     pathologically slow to enumerate - cloud-sync placeholder folders (OneDrive,
+    ///     Dropbox, Google Drive) are the standout case: each file in them can trigger a
+    ///     network round-trip just to answer "does this file exist," which can turn a
+    ///     10-second local scan into a 10-minute one on a drive with a large synced folder.
+    ///  3. progress lets the caller show live "still working, currently in X" status instead
+    ///     of an indefinite spinner with no feedback - a real UX bug on its own even when the
+    ///     scan itself is fast, since "is this hung or just slow" was previously unanswerable.
     /// </summary>
-    public static IEnumerable<StudioScanResult> ScanDrivesForStudio(int maxDepth = 7, CancellationToken ct = default)
+    public static async Task<List<StudioScanResult>> ScanDrivesForStudioAsync(
+        IProgress<string>? progress = null,
+        int maxDepth = 6,
+        int maxConcurrency = 8,
+        CancellationToken ct = default)
     {
-        foreach (var drive in SafeGetDrives())
+        var results = new List<StudioScanResult>();
+        var resultsLock = new object();
+        using var semaphore = new SemaphoreSlim(maxConcurrency);
+
+        async Task ScanDirAsync(string dir, int depthRemaining)
         {
-            ct.ThrowIfCancellationRequested();
+            if (depthRemaining <= 0 || ct.IsCancellationRequested)
+                return;
 
-            foreach (var found in ScanDirectory(drive.RootDirectory.FullName, maxDepth, ct))
-                yield return found;
-        }
-    }
+            var dirName = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (IsNoiseDirectory(dirName))
+                return;
 
-    private static IEnumerable<StudioScanResult> ScanDirectory(string dir, int depthRemaining, CancellationToken ct)
-    {
-        if (depthRemaining <= 0)
-            yield break;
+            progress?.Report(dir);
 
-        ct.ThrowIfCancellationRequested();
+            foreach (var candidate in KoroneConfig.StudioExecutableCandidates)
+            {
+                string exePath;
+                try { exePath = Path.Combine(dir, candidate); }
+                catch (Exception) { return; }
 
-        var dirName = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (IsNoiseDirectory(dirName))
-            yield break;
+                if (File.Exists(exePath))
+                {
+                    var year = InferYearFromPath(dir);
+                    if (year is not null)
+                    {
+                        lock (resultsLock)
+                            results.Add(new StudioScanResult(year, dir));
+                    }
+                    break; // found one candidate in this dir, no need to check the others
+                }
+            }
 
-        string exePath;
-        try
-        {
-            exePath = Path.Combine(dir, KoroneConfig.StudioExecutableName);
-        }
-        catch (Exception)
-        {
-            yield break;
-        }
-
-        if (File.Exists(exePath))
-        {
-            var year = InferYearFromPath(dir);
-            if (year is not null)
-                yield return new StudioScanResult(year, dir);
-        }
-
-        IEnumerable<string> subdirs;
-        try
-        {
-            subdirs = Directory.EnumerateDirectories(dir);
-        }
-        catch (Exception)
-        {
-            yield break; // no permission, or the directory vanished mid-scan - just skip it
-        }
-
-        foreach (var sub in subdirs)
-        {
-            ct.ThrowIfCancellationRequested();
-
-            IEnumerable<StudioScanResult> nested;
+            string[] subdirs;
             try
             {
-                nested = ScanDirectory(sub, depthRemaining - 1, ct).ToList();
+                subdirs = Directory.GetDirectories(dir);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception)
             {
-                continue;
+                return; // no permission, or the directory vanished mid-scan - just skip it
             }
 
-            foreach (var found in nested)
-                yield return found;
+            var tasks = new List<Task>(subdirs.Length);
+            foreach (var sub in subdirs)
+            {
+                await semaphore.WaitAsync(ct);
+                tasks.Add(Task.Run(async () =>
+                {
+                    try { await ScanDirAsync(sub, depthRemaining - 1); }
+                    finally { semaphore.Release(); }
+                }, ct));
+            }
+
+            await Task.WhenAll(tasks);
         }
+
+        var driveTasks = SafeGetDrives()
+            .Select(drive => ScanDirAsync(drive.RootDirectory.FullName, maxDepth))
+            .ToList();
+
+        await Task.WhenAll(driveTasks);
+        return results;
     }
 
     private static string? InferYearFromPath(string path)
@@ -94,17 +110,33 @@ public static class StudioManager
         return null;
     }
 
+    private static readonly HashSet<string> NoiseDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Windows/system noise - large, irrelevant, sometimes access-restricted
+        "$Recycle.Bin", "System Volume Information", "Windows", "ProgramData",
+        "Program Files", "Program Files (x86)", "Windows.old", "Recovery",
+        "PerfLogs", "config.msi",
+
+        // Dev tooling noise - large, irrelevant
+        "node_modules", ".git", ".svn", ".hg", "proc", "sys", "dev",
+
+        // Cloud-sync placeholder folders - each entry can trigger a slow network round-trip
+        // to resolve, turning what should be a fast local scan into a very slow one. Portable
+        // Studio installs living inside one of these would still get missed by this pruning,
+        // but scanning through them at all-file granularity was the single biggest known
+        // cause of multi-minute scans.
+        "OneDrive", "Dropbox", "Google Drive", "iCloudDrive", "iCloud Drive", "Box", "pCloudDrive",
+
+        // Package manager / game-platform noise - huge, essentially never relevant here
+        "steamapps", "Epic Games", "WindowsApps", "AppData",
+    };
+
     private static bool IsNoiseDirectory(string name)
     {
         if (string.IsNullOrEmpty(name))
             return false;
 
-        var noise = new[]
-        {
-            "$Recycle.Bin", "System Volume Information", "Windows", "ProgramData",
-            "node_modules", ".git", "proc", "sys", "dev",
-        };
-        return noise.Contains(name, StringComparer.OrdinalIgnoreCase) || name.StartsWith('.');
+        return NoiseDirectoryNames.Contains(name) || name.StartsWith('.');
     }
 
     private static IEnumerable<DriveInfo> SafeGetDrives()
@@ -123,7 +155,7 @@ public static class StudioManager
     /// A lightweight "has this changed" signal from the server without downloading the whole
     /// archive - ETag first, then Last-Modified, then Content-Length as fallbacks. This is
     /// what actually gets compared as the "hash" in the UI; a true content hash would mean
-    /// downloading the full ZIP just to check for updates, which isn't a good trade for a
+    /// downloading the whole archive just to check for updates, which isn't a good trade for a
     /// multi-hundred-MB download.
     /// </summary>
     public static async Task<string?> GetRemoteFingerprintAsync(string year, HttpClient? httpClient = null)
@@ -215,9 +247,22 @@ public static class StudioManager
         }
     }
 
+    /// <summary>Finds whichever candidate executable actually exists in an install directory.</summary>
+    public static string? FindStudioExecutable(string installPath)
+    {
+        foreach (var candidate in KoroneConfig.StudioExecutableCandidates)
+        {
+            var path = Path.Combine(installPath, candidate);
+            if (File.Exists(path))
+                return path;
+        }
+        return null;
+    }
+
     public static void Launch(string installPath)
     {
-        var exePath = Path.Combine(installPath, KoroneConfig.StudioExecutableName);
+        var exePath = FindStudioExecutable(installPath)
+            ?? Path.Combine(installPath, KoroneConfig.StudioExecutableCandidates[0]);
         ProcessLauncher.Launch(exePath);
     }
 }

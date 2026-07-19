@@ -31,8 +31,8 @@
                 <Line StartPoint="7.5,7.5" EndPoint="13,13" Stroke="#9086C0" StrokeThickness="1.6"/>
               </Canvas>
             </Viewbox>
-            <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Search features…"
-                     Background="Transparent" BorderThickness="0" Foreground="White" VerticalContentAlignment="Center" Padding="0,0,4,0"/>
+            <TextBox x:Name="SearchBox" Grid.Column="1" Classes="searchinput" Watermark="Search features…"
+                     BorderThickness="0" Foreground="White" VerticalContentAlignment="Center" Padding="0,0,4,0"/>
             <Button x:Name="BtnClearSearch" Grid.Column="2" Classes="ghost" Padding="6" Margin="0,0,4,0" IsVisible="False">
               <Viewbox Width="9" Height="12">
                 <Path Fill="#9086C0" Data="M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z"/>
@@ -160,8 +160,12 @@
                 <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
                            ToolTip.Tip="Studio installs are portable and can live anywhere, so KSC-Sharp needs to scan your drive(s) to find them - this only happens when you click Scan, never automatically. Update checks compare the server's file signature (ETag/Last-Modified) against what was recorded at install time, not a true content hash, to avoid downloading the whole archive just to check."/>
               </StackPanel>
-              <Button x:Name="BtnScanDrives" Content="Scan drives for Korone Studio…" Classes="secondary" HorizontalAlignment="Left"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="BtnScanDrives" Content="Scan drives for Korone Studio…" Classes="secondary" HorizontalAlignment="Left"/>
+                <Button x:Name="BtnCancelScan" Content="Cancel" Classes="ghost" IsVisible="False"/>
+              </StackPanel>
               <TextBlock x:Name="StudioScanStatusText" Classes="subtle" TextWrapping="Wrap"/>
+              <TextBlock x:Name="StudioScanProgressText" Classes="subtle" FontSize="11" TextTrimming="CharacterEllipsis" IsVisible="False"/>
               <ItemsControl x:Name="StudioManageList"/>
             </StackPanel>
           </Border>
@@ -348,35 +352,50 @@
       </ScrollViewer>
 
       <!-- FastFlags page -->
-      <StackPanel x:Name="FastFlagsPage" Spacing="16" IsVisible="False">
-        <StackPanel>
-          <TextBlock Text="FastFlags" Classes="h1"/>
-          <TextBlock Text="Control how specific Korone engine parameters and features are configured." Classes="subtle"/>
+      <ScrollViewer x:Name="FastFlagsPage" IsVisible="False">
+        <StackPanel Spacing="14" Margin="0,0,12,0">
+          <StackPanel Margin="0,0,0,2">
+            <TextBlock Text="FastFlags" Classes="h1"/>
+            <TextBlock Text="Control how specific Korone engine parameters and features are configured." Classes="subtle"/>
+          </StackPanel>
+
+          <Button x:Name="BtnOpenFastFlagEditor" Classes="settingsrow" Click="OpenFastFlagEditor_Click">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Grid.Column="0" Text="🖊" FontSize="20" VerticalAlignment="Center" Margin="0,0,14,0"/>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Fast Flag Editor" Classes="h2"/>
+                <TextBlock Text="Manage your own Fast Flags. Use with caution." Classes="subtle"/>
+              </StackPanel>
+              <TextBlock Grid.Column="2" Text="›" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </Grid>
+          </Button>
+
+          <Border Classes="card">
+            <Grid RowDefinitions="Auto" ColumnDefinitions="*,Auto" Margin="2">
+              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Allow KSC-Sharp to manage Fast Flags" Classes="h2"/>
+                <TextBlock Text="Disabling this prevents anything configured here from being applied to Korone." Classes="subtle" TextWrapping="Wrap"/>
+              </StackPanel>
+              <ToggleSwitch x:Name="ToggleFastFlagsManagement" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+            </Grid>
+          </Border>
+
+          <Button x:Name="BtnResetFastFlags" Content="Reset everything to defaults" Classes="ghost" HorizontalAlignment="Left"/>
+
+          <TextBlock Text="Presets" Classes="h2" Margin="0,6,0,0"/>
+          <TextBlock Text="Geometry" Classes="h2" Margin="12,0,0,0" FontSize="13.5"/>
+
+          <Border Classes="card">
+            <Grid RowDefinitions="Auto" ColumnDefinitions="*,Auto" Margin="2">
+              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Mesh detail" Classes="h2"/>
+                <TextBlock Text="Control how detailed meshes appear in-game." Classes="subtle" TextWrapping="Wrap"/>
+              </StackPanel>
+              <ToggleSwitch x:Name="ToggleMeshDetail" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+            </Grid>
+          </Border>
         </StackPanel>
-
-        <Button x:Name="BtnOpenFastFlagEditor" Classes="settingsrow" Click="OpenFastFlagEditor_Click">
-          <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Column="0" Text="🖊" FontSize="20" VerticalAlignment="Center" Margin="0,0,14,0"/>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-              <TextBlock Text="Fast Flag Editor" Classes="h2"/>
-              <TextBlock Text="Manage your own Fast Flags. Use with caution." Classes="subtle"/>
-            </StackPanel>
-            <TextBlock Grid.Column="2" Text="›" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-          </Grid>
-        </Button>
-
-        <Border Classes="card">
-          <Grid RowDefinitions="Auto" ColumnDefinitions="*,Auto" Margin="2">
-            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,0">
-              <TextBlock Text="Allow KSC-Sharp to manage Fast Flags" Classes="h2"/>
-              <TextBlock Text="Disabling this prevents anything configured here from being applied to Korone." Classes="subtle" TextWrapping="Wrap"/>
-            </StackPanel>
-            <ToggleSwitch x:Name="ToggleFastFlagsManagement" Grid.Row="0" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-          </Grid>
-        </Border>
-
-        <Button x:Name="BtnResetFastFlags" Content="Reset everything to defaults" Classes="ghost" HorizontalAlignment="Left"/>
-      </StackPanel>
+      </ScrollViewer>
 
       <!-- Global Settings page -->
       <ScrollViewer x:Name="GlobalSettingsPage" IsVisible="False">
@@ -415,6 +434,11 @@
                               Width="140" Minimum="1" Maximum="2000" Increment="1" FormatString="0"/>
             </Grid>
           </Border>
+
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2,0,0">
+            <Button x:Name="BtnVerifyGraphicsApi" Content="Apply &amp; Verify Now" Classes="secondary"/>
+            <TextBlock x:Name="GraphicsApiStatusText" Classes="subtle" VerticalAlignment="Center" TextWrapping="Wrap"/>
+          </StackPanel>
         </StackPanel>
       </ScrollViewer>
 

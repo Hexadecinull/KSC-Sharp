@@ -2,6 +2,34 @@
 
 Development history of this rewrite. For end-user documentation, see [README.md](./README.md).
 
+## 1.4.0
+
+### Fixed
+- **Real Discord Application ID and small-image key**, sourced directly from Korone's own official Discord RPC client source (also confusingly also called "KoroneStrap", K-major - a separate project from koroneStrap the Python bootstrapper this app is a rewrite of). The placeholder ID from 1.2.0 is gone.
+- **Client log directory corrected**: confirmed via the same official source to be `%LocalAppData%\Roblox\logs\`, not `ProjectX`/`Pekora` as previously guessed - this directly affects Query Server Details and the new Activity Tracking mechanism below.
+- **CA1416 platform-compatibility warnings** on every CI platform: the `OperatingSystem.IsWindows()` guard lived in the outer method, but the actual restricted calls were inside a `Task.Run` lambda - a separate method body as far as the analyzer is concerned, so the guard didn't count. Moved the check inside the lambda itself.
+- **Double ampersand on Studio buttons** ("Download && Install"): this was a plain C# string assigned to `Button.Content`, not XAML markup - it never needed escaping, so writing `&&` just displayed two literal ampersands. Fixed to a single `&`.
+- **Discord toggles didn't visibly do anything until the next external trigger**: every toggle under Discord Rich Presence (Show game activity, status display, joining, Show Korone account) only saved the setting - none of them refreshed an activity that was already showing. Now every one re-publishes immediately if Rich Presence is live.
+- **Search box background** went white on click: FluentTheme's `:pointerover`/`:focus` states set `Background` on an inner template part directly, silently overriding the plain `Background="..."` attribute set on the `TextBox` itself. Fixed with an explicit style override on both the control and its template part.
+- **Manual Release CI**: the pasted failure was GitHub's own infrastructure returning a transient 500 ("Unicorn" error page) during release creation. Replaced `softprops/action-gh-release@v3` with a direct `gh release create` call (the first-party CLI, preinstalled on every runner) wrapped in a 3-attempt retry loop, so a transient failure like this one no longer fails the whole run.
+- **Drive scan taking 10+ minutes and finding nothing**: two separate problems. Speed: the scan was strictly single-threaded depth-first recursion with only light pruning - rewritten to scan directories in parallel (bounded concurrency) with much more aggressive pruning, especially of cloud-sync placeholder folders (OneDrive/Dropbox/etc.), where every file check can trigger a slow network round-trip and was very likely the dominant cost on a real-world drive. Visibility: added live "currently scanning: ..." progress text and a Cancel button, since a scan that's still running looked identical to one that had hung. Correctness: the scan only ever checked one guessed executable name; it now checks a short list of plausible candidates instead, and "not found" is at least no longer caused by chasing a single wrong guess.
+
+### Added
+- **Activity Tracking now does something real**: watches Korone's own `[KORONESTRAPSDK]` log marker and decodes `presenceStateChange` events from it - the exact mechanism Korone's official Discord RPC client uses, minus the half that needs an authentication ticket (see below). Feeds Discord's status text live.
+- **Discord Buttons support** in the IPC client, with a generic "Play Korone" link - matching the official client's use of Buttons, though without a per-game URL (see below for why).
+- **Windows x86 (32-bit) support**: Korone natively ships both architectures, so `win-x86` was added alongside `win-x64` across `ci.yml`, `installer.yml`, and `manual-release.yml`. The Inno Setup script is now parameterized by architecture (`/DMyAppArch=`, `/DMySourceDir=`) instead of hardcoded to one build, and produces a correctly-named installer for each.
+- **FastFlags → Presets → Geometry → Mesh detail** toggle, forcing reduced mesh/LOD detail for performance. Off by default.
+- **Apply & Verify Now** button in Global Settings: applies the current Graphics API / Framerate / Mesh Detail presets immediately and confirms they stuck, without needing to launch a client and check the Log tab.
+
+### Changed
+- Sub-category headers/descriptions in the FastFlags page now sit tight against their own content (matching the same fix already applied to Integrations/Global Settings last round).
+- Version bumped to 1.4.0.
+
+### Known limitations (unchanged from what they were, restated for clarity)
+- Korone's official Discord RPC client also authenticates to its API using a login ticket to look up exactly which game and icon to show. This project deliberately doesn't do that - capturing or using an auth ticket to make API calls as the user is treated the same as reading account credentials elsewhere in this project. In practice: the large Discord image is a static KSC-Sharp icon, not a live per-game one, and the button links to Korone generally rather than a specific game.
+- Mesh detail's underlying flags are a best-supported reading of ambiguous sources, not a fully confirmed one - see the README.
+- Korone Studio's executable name is still not confirmed against a real install, just narrowed to a short candidate list.
+
 ## 1.3.0
 
 ### Added
