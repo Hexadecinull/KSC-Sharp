@@ -34,8 +34,9 @@ and – unlike either of those – runs natively on Windows, Linux, and macOS fr
   directly from the app.
 - **Link handling** – registers `pekora-player://` so join links from the browser open straight
   into KSC-Sharp (Windows registry on Windows, a desktop entry + MIME handler on Linux).
-- **Discord Rich Presence** – show what you're playing on your Discord profile, with the same
-  granular controls Bloxstrap offers (see [Discord Rich Presence](#discord-rich-presence)).
+- **Discord Rich Presence** – show what you're playing, with a dynamic per-game icon
+  (best-effort), account detection, and activity joining, with the same granular controls
+  Bloxstrap offers (see [Discord Rich Presence](#discord-rich-presence)).
 - **Server details lookup** – see the rough location of the game server you're currently
   connected to.
 - **Korone Studio support** (Experimental) – locate, install, update, and launch Studio
@@ -94,65 +95,85 @@ under Presets → Rendering and Graphics.
 
 ### Activity Tracking
 
-Found under Integrations, first section. **Enable activity tracking** watches for a
-`KORONESTRAPSDK` marker in Korone's own log file – the same public, non-credential channel
-Korone's own official Discord RPC client reads from – to pick up live status updates the game
-pushes. This feeds Discord's status text when Rich Presence is on, and gates **Query server
-details** (see roughly where your current game server is hosted).
+Found under Integrations, first section. **Enable activity tracking** watches Korone's own log
+file for two things the client publicly reports about itself - neither needs any credential:
+
+- A `KORONESTRAPSDK` marker, the same channel Korone's own official Discord RPC client reads
+  for live in-game status text.
+- A `[FLog::GameJoinLoadTime]` line (confirmed against a real captured client log, not just
+  documentation) containing the place/universe you joined and your own account id - the client
+  self-reporting its own current session, the same way it already self-reports a server IP
+  elsewhere in this project.
+
+This feeds Discord's status text, resolves the game name/icon for Rich Presence, and populates
+**Show Korone account** - for any launch, not just ones from a join link. It also gates **Query
+server details** (see roughly where your current game server is hosted).
 
 ### Discord Rich Presence
 
-Found under Integrations, right after Activity Tracking – it depends on activity tracking being
+Found under Integrations, right after Activity Tracking - it depends on activity tracking being
 on, plus the Discord desktop app installed and running. Off by default:
 
-- **Enable Discord Rich Presence** – the master on/off switch (off by default).
-- **Show game activity** – whether the specific client/details are published once connected,
+- **Enable Discord Rich Presence** - the master on/off switch (off by default).
+- **Show game activity** - whether the specific client/details are published once connected,
   separate from the connection itself (so you can stay "connected" without broadcasting details).
-- **Discord status display** – "Name" shows just that you're playing Korone; "Details" adds
-  the live status from Activity Tracking if one's available, falling back to the client year.
-  Defaults to Name.
-- **Allow activity joining** – lets friends join your game directly from your Discord profile.
-  Off by default, and outbound-only for now (see the ⓘ next to it in-app).
-- **Show Korone account** – only ever populated from the userId in a join link you opened
-  through KSC-Sharp, never by reading account credentials. Only works after joining a game via
-  a `pekora-player://` link at least once; direct in-app launches don't carry an account id.
+- **Discord status display** - "Name" shows just that you're playing Korone; "Details" adds the
+  live status from Activity Tracking, or the detected game name, or the client year, in that
+  order of preference. Defaults to Name.
+- **Allow activity joining** - lets friends join your game directly from your Discord profile.
+  Off by default. When a friend clicks Join, KSC-Sharp opens the game's page in your browser
+  rather than attempting to launch the client directly - see the note below on why.
+- **Show Korone account** - shows your account id once Activity Tracking has seen one, either
+  from a join link's userId or the client's own log (see above). Never from reading account
+  credentials.
 
 Every toggle above takes effect immediately if Rich Presence is already showing, not just on
 the next launch.
 
-This requires the Discord desktop app to be installed and running.
+**Dynamic per-game icon and a real "Play"/"View Game" button**: once Activity Tracking has
+detected a placeId (from a join link or the client's own log), KSC-Sharp attempts to resolve it
+into a game name and icon via a public API call - this part is a best-effort guess at Korone's
+actual endpoint (see `KoroneGameInfoClient.cs`'s doc comment for exactly what's confirmed versus
+guessed), so it may not always resolve; when it doesn't, Rich Presence falls back to the static
+KSC-Sharp icon and a generic "Play Korone" button, exactly as before. **If you can open your
+browser's Network tab on a real pekora.zip game page and capture the request that loads the
+game's name/icon, that's the one piece of information that would make this fully reliable
+instead of best-effort.**
 
-The Discord Application ID and small-image badge are Korone's own real, official ones – lifted
+**Why activity joining opens a browser instead of launching directly**: joining a friend's
+specific game server needs a negotiated authentication ticket for that server instance, the
+same way a `pekora-player://` join link carries one. There's no way to get an equivalent ticket
+for a friend-initiated Discord join without capturing and reusing authentication material this
+project deliberately doesn't touch (see [Data & Privacy](#data--privacy) below) - and even
+setting that aside, reusing the *game-launch* ticket for an unrelated purpose risks consuming a
+likely single-use credential and breaking the actual join. Opening the browser sidesteps this
+entirely: it already has your real logged-in session, so it can complete the join through
+Korone's own normal web flow.
+
+The Discord Application ID and small-image badge are Korone's own real, official ones - lifted
 directly from Korone's own "KoroneStrap" Discord RPC client source (K-major; a different,
-separate project from koroneStrap the Python bootstrapper this whole app is a rewrite of). What
-that official client also does, and this project deliberately doesn't: it authenticates to
-Korone's API using a login ticket to look up exactly which game and icon to show. Capturing or
-using an authentication ticket to make API calls as the user is treated the same as reading
-account credentials elsewhere in this project – a line not crossed here without it being an
-explicit, separate decision. In practice this means the large image is a static KSC-Sharp icon
-rather than a live per-game one, and the "Play Korone" button links to Korone generally rather
-than the specific game.
+separate project from koroneStrap the Python bootstrapper this whole app is a rewrite of).
 
-> **Maintainer note:** the large-image art itself (`KoroneConfig.DiscordLargeImageKey`, `logo`)
-> still needs to be uploaded under the Discord application's Rich Presence → Art Assets page –
-> unlike the Application ID and small-image key, that specific key name isn't something the
-> official client's own source provided, since it uses a dynamic per-game icon URL there instead.
-> Until it's uploaded, Rich Presence connects and updates fine, it just won't show a large icon.
+> **Maintainer note:** the *static* large-image art (`KoroneConfig.DiscordLargeImageKey`,
+> `logo` - what shows when a per-game icon isn't available) still needs to be uploaded under
+> the Discord application's Rich Presence → Art Assets page. Until it's uploaded, Rich Presence
+> connects and updates fine, it just won't show a large icon when it's falling back to the
+> static one.
 
 ### Server details lookup
 
 Under Integrations → Activity tracking. Reads the client's own log file for the server you
-joined, then looks up its rough location (city/region/country) via a public IP lookup – this
+joined, then looks up its rough location (city/region/country) via a public IP lookup - this
 doesn't go through pekora.zip or need a proxy, it's a direct lookup against the server IP
 itself. What's unverified: the log line this looks for is Roblox's well-documented format,
 which Korone likely shares since it's Roblox-compatible, but that hasn't been confirmed
 against a real Korone log. If "Check Now" never finds anything, that's the first thing to
-check – see `ServerLocator.cs`.
+check - see `ServerLocator.cs`.
 
 ### Window manipulation
 
 Under Integrations. **Enable window manipulation** lets KSC-Sharp look up the running client's
-window handle – groundwork for future features (always-on-top, custom title bar, etc.), not a
+window handle - groundwork for future features (always-on-top, custom title bar, etc.), not a
 feature in itself yet. Windows only for now; Linux (X11/Wayland) and macOS (Cocoa) use entirely
 different windowing APIs that would need separate implementations.
 
@@ -164,8 +185,8 @@ is set to Vulkan.
 
 ### Join links
 
-Opening a `pekora-player://` link now shows a small loading window with live status – "Reading
-link...", "Preparing the client...", "Starting Korone..." – instead of silently launching (or
+Opening a `pekora-player://` link now shows a small loading window with live status - "Reading
+link...", "Preparing the client...", "Starting Korone..." - instead of silently launching (or
 silently failing) in the background. If something's wrong (client not found, launch failed), it
 shows the error there instead of just doing nothing.
 
@@ -191,17 +212,22 @@ rather than downloading the whole archive just to check.
 
 Under Global Settings → Presets → Rendering and Graphics:
 
-- **Current Graphics API** (Experimental) – switch between Direct3D, OpenGL, and Vulkan.
-  This uses real, documented Roblox-engine flags (`FFlagDebugGraphicsPreferD3D11` /
-  `...PreferOpenGL` / `...PreferVulkan`), not injection – Korone being Roblox-compatible,
+- **Current Graphics API** (Experimental) - switch between Direct3D, OpenGL, and Vulkan.
+  This uses real, documented Roblox-engine flags, not injection - Korone being Roblox-compatible,
   these very likely work the same way, though that hasn't been confirmed against a real
-  Korone install. Worth knowing: official Roblox added a server-side allowlist for which
-  FastFlags actually take effect in September 2025; these particular flags are confirmed to
-  be on it, but that's Roblox's own policy, and Korone – especially the older client years
-  this app supports, which predate that allowlist entirely – may or may not follow it. That
-  uncertainty, not a bug in this app, is why it's marked Experimental.
-- **Framerate Limit** – unlocks the client's FPS cap (`DFIntTaskSchedulerTargetFps`, default
-  60). Going above 240 FPS isn't recommended – Roblox's own engine can behave oddly above
+  Korone install. Independent sources disagree on the exact Direct3D flag name
+  (`FFlagDebugGraphicsPreferD3D11` vs. `...PreferDirect3D11`), so KSC-Sharp sets both when
+  targeting Direct3D - harmless if one is wrong, since unrecognized flags are just ignored.
+  Worth knowing: official Roblox added a server-side allowlist for which FastFlags actually
+  take effect in September 2025; the OpenGL/Vulkan flags are confirmed to be on it, but that's
+  Roblox's own policy, and Korone - especially the older client years this app supports, which
+  predate that allowlist entirely - may or may not follow it. That uncertainty, not a bug in
+  this app, is why it's marked Experimental. **Check Which Renderer Actually Loaded**, right
+  below, gives you a way to verify empirically what actually happened, since this is genuinely
+  something neither the client-engine source (not part of the bootstrapper repo this project
+  is otherwise built from) nor this app can determine on its own - only running it can.
+- **Framerate Limit** - unlocks the client's FPS cap (`DFIntTaskSchedulerTargetFps`, default
+  60). Going above 240 FPS isn't recommended - Roblox's own engine can behave oddly above
   that, independent of KSC-Sharp.
 
 Both are applied alongside whatever's in the FastFlags editor whenever you launch a client.
@@ -209,16 +235,54 @@ Both are applied alongside whatever's in the FastFlags editor whenever you launc
 installed client's settings file to confirm they actually stuck, without needing to launch a
 client and check the Log tab first.
 
+**Check Which Renderer Actually Loaded** scans the most recent client log for lines mentioning
+a graphics API. Unlike some other log-based features in this app, there's no confirmed exact
+log line format for renderer selection - so rather than claim a definitive parse it doesn't
+actually have, this surfaces the raw matching lines for you to read and judge yourself. Run it
+after launching a client with a Graphics API preset applied. **If you can confirm which
+renderer actually loaded and what (if anything) the log said about it, that turns this from a
+best-effort scan into a properly verified parser** - the same process that already worked for
+the Query Server Details and Activity Tracking features in this app.
+
 ### FastFlags presets
 
 Under FastFlags → Presets → Geometry:
 
-- **Mesh detail** – forces lower-detail meshes for performance
+- **Mesh detail** - forces lower-detail meshes for performance
   (`DFFlagDebugRenderForceTechnologyVoxel` + `DFIntDebugFRMQualityLevelOverride`). Off by
   default (normal engine detail). Worth flagging: this one is less certain than the Graphics
-  API / Framerate flags above – the sources describing it don't cleanly pair each flag with an
+  API / Framerate flags above - the sources describing it don't cleanly pair each flag with an
   exact description, so this is the best-supported reading of what's available, not a fully
   confirmed one.
+
+## Data & Privacy
+
+KSC-Sharp deliberately never reads stored account credentials - saved passwords, session
+cookies, or authentication tickets/tokens on disk or in memory belonging to Korone or your
+browser. Every account-related feature in this app (Show Korone account, the dynamic Discord
+game icon, server details) is built entirely from information the client itself already
+publishes to its own log file, or that arrives directly in a `pekora-player://` link you
+opened - never anything intercepted or extracted from where your login session is actually
+stored. If a feature would require that, it's built to fail gracefully and fall back rather
+than reach for it (see [Discord Rich Presence](#discord-rich-presence) above for a concrete
+example - the "Play"/"View Game" button opens your browser instead of attempting a client
+launch that would need exactly that kind of credential).
+
+This is a real, load-bearing limitation, not just a caveat: it means a small number of features
+(a fully dynamic per-game Discord icon on every launch, joining a friend's exact server
+instance directly rather than through the browser) work in a more limited way than they could
+if this boundary weren't there.
+
+What KSC-Sharp *does* store, in its own AppData directory (see the About tab → Data in-app for
+the exact path): app settings, a local FastFlags cache, Korone Studio install locations, and the
+last-seen account id and place/universe id the client itself reported. None of it is a
+credential - it's either configuration you entered yourself or public identifiers the client
+already logs about its own current session. That directory is still hardened to be readable
+only by your own user account as defense-in-depth (Windows: ACLs restricted to you + built-in
+Administrators; Linux/macOS: `chmod 700` on the directory, `600` on the files inside it) -
+applied automatically, once, the first time the app runs. This mainly guards against unusual
+configurations (a shared machine, a loose Linux umask); on a normal single-user install, your
+OS already keeps this location private by default.
 
 ## Building from source
 

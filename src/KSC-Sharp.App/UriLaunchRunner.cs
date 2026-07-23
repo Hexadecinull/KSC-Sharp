@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace KSCSharp.App;
 
-public record UriLaunchOutcome(bool Success, string Message);
+public record UriLaunchOutcome(bool Success, string Message, string? PlaceId = null, string? UniverseId = null);
 
 public static class UriLaunchRunner
 {
@@ -31,22 +31,22 @@ public static class UriLaunchRunner
         if (exePath is null)
         {
             return new UriLaunchOutcome(false,
-                $"Couldn't find an installed {parsed.Year} client. Try running the bootstrapper first.");
+                $"Couldn't find an installed {parsed.Year} client. Try running the bootstrapper first.", parsed.PlaceId, parsed.UniverseId);
         }
 
         onStatus("Starting Korone...");
         try
         {
             await Task.Run(() => ProcessLauncher.Launch(exePath, parsed.Args));
-            return new UriLaunchOutcome(true, "Launched!");
+            return new UriLaunchOutcome(true, "Launched!", parsed.PlaceId, parsed.UniverseId);
         }
         catch (ProcessLaunchException ex)
         {
-            return new UriLaunchOutcome(false, ex.Message);
+            return new UriLaunchOutcome(false, ex.Message, parsed.PlaceId, parsed.UniverseId);
         }
         catch (Exception ex)
         {
-            return new UriLaunchOutcome(false, $"Launch failed: {ex.Message}");
+            return new UriLaunchOutcome(false, $"Launch failed: {ex.Message}", parsed.PlaceId, parsed.UniverseId);
         }
     }
 }

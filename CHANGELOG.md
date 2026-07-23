@@ -2,6 +2,28 @@
 
 Development history of this rewrite. For end-user documentation, see [README.md](./README.md).
 
+## 1.5.0
+
+This round implements everything left open at the end of 1.4.0's Discord/Graphics API status check, with explicit permission covering the credential-adjacent parts - see the Data & Privacy section below and in the README for exactly where the line ended up.
+
+### Added
+- **`[FLog::GameJoinLoadTime]` log parsing** - confirmed against a real captured Roblox client log (not just documentation) to contain placeId, universeId, and userId together, self-reported by the client about its own session. This single addition is what makes several other things below possible without touching any credential.
+- **Dynamic per-game Discord icon and "Play"/"View Game" button**, resolved via a best-effort public API call (`KoroneGameInfoClient`) once a placeId is known. The exact Korone endpoint isn't confirmed - only that `www.pekora.zip/api/...` is a real, used prefix (found in the bootstrapper source's own Discord OAuth callback URL). Fails gracefully to the static icon/generic button on any error.
+- **"Show Korone account" now works for any launch**, not just join links, sourced from the GameJoinLoadTime line above.
+- **Real activity joining**: the Discord IPC client now runs a continuous background read loop (previously it only ever wrote commands and did one blocking read during the handshake) and subscribes to `ACTIVITY_JOIN`. When a friend clicks Join, KSC-Sharp opens the game's page in your browser rather than attempting a direct client launch - see the README for why a direct launch isn't the reliable choice here (it would need a negotiated auth ticket for that specific server instance, which risks consuming a likely single-use credential even if one were available).
+- **"Check Which Renderer Actually Loaded"** in Global Settings: scans the most recent client log for graphics-API-related lines. No confirmed exact log format exists for this (unlike GameJoinLoadTime above), so it surfaces raw matching lines for manual verification rather than claiming a definitive parse.
+- **AppData directory hardening**: settings.json, the FastFlags cache, and studio.json are now restricted to the current user only (Windows: ACLs; Linux/macOS: `chmod 700`/`600`), applied automatically once per run. Defense-in-depth, not the primary protection - see the new Data & Privacy README section.
+- **Windows x86 (32-bit) support** across CI, the installer, and manual releases - Korone ships both architectures natively.
+- Defensive dual Direct3D flag naming (`FFlagDebugGraphicsPreferD3D11` and `...PreferDirect3D11`) after finding independent sources disagree on the exact name; setting both costs nothing since unrecognized flags are ignored.
+
+### Changed
+- Reviewed the Korone-Bootstrapper C++ source specifically for renderer-selection code - confirmed it contains none (it's genuinely just the old installer/updater, not engine source), which is why Graphics API verification has to happen empirically via the log-scanning tool above rather than by reading the source.
+- Version bumped to 1.5.0.
+
+### Explicitly not done, with reasoning
+- **No authenticated ticket-based API polling**, even though this was explicitly permitted this round. Two separate reasons, not just caution: (1) the only ticket KSC-Sharp ever sees is the one already flowing through to the client for its own launch/join, likely single-use - capturing it for an unrelated API call risks breaking the actual game launch, which was explicitly something not to do; (2) the GameJoinLoadTime log line already provides placeId/universeId/userId without needing one at all, so building the ticket path wouldn't have added capability, only risk.
+- Injection/memory patching was not built. There's no confirmed target for it yet - the bootstrapper source review above ruled out one place it might have been justified (no renderer gating exists there to bypass), and the Graphics API question is still open pending real testing with the verification tool above. Revisit only if that testing shows a concrete gap injection could actually address.
+
 ## 1.4.0
 
 ### Fixed

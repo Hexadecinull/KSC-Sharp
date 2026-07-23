@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>12.0</LangVersion>
     <RootNamespace>KSCSharp.Core</RootNamespace>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

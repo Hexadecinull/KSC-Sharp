@@ -14,15 +14,28 @@ namespace KSCSharp.Core.Discord;
 /// This is publicly documented protocol (the same one every discord-rpc / DiscordRPC.NET /
 /// presence.nvim-style library implements) - no official SDK or NuGet package is required to
 /// speak it, which is deliberate here: it keeps this dependency-free and inspectable.
+///
+/// Runs a continuous background read loop once connected (not just a single blocking read
+/// during the handshake), since Discord can push unsolicited DISPATCH frames at any time -
+/// specifically ACTIVITY_JOIN, which fires when a friend clicks "Ask to Join" on the activity
+/// this app published. Reading it is what makes activity joining actually work end to end
+/// (previously the join button existed but nothing ever handled a click on it).
 /// </summary>
 public sealed class DiscordIpcClient : IDisposable
 {
     private const int OpHandshake = 0;
     private const int OpFrame = 1;
+    private const int OpClose = 2;
 
     private Stream? _stream;
+    private readonly object _writeLock = new();
+    private CancellationTokenSource? _readLoopCts;
+    private Task? _readLoopTask;
 
     public bool IsConnected { get; private set; }
+
+    /// <summary>Raised when Discord reports the user clicked "Ask to Join" on this app's activity, with the join secret that was set.</summary>
+    public event Action<string>? ActivityJoinRequested;
 
     public bool TryConnect(string clientId)
     {
@@ -41,9 +54,42 @@ public sealed class DiscordIpcClient : IDisposable
             // Discord replies with a DISPATCH/READY frame on a successful handshake. We don't
             // need to parse it in detail - getting any frame back without the pipe throwing
             // means the connection is live.
-            ReadFrame();
+            ReadFrameRaw();
 
             IsConnected = true;
+
+            _readLoopCts = new CancellationTokenSource();
+            _readLoopTask = Task.Run(() => ReadLoop(_readLoopCts.Token));
+
+            return true;
+        }
+        catch (Exception)
+        {
+            Disconnect();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Subscribes to a Discord IPC event (e.g. "ACTIVITY_JOIN"). Must be called after a
+    /// successful TryConnect. The event itself arrives later via ActivityJoinRequested,
+    /// delivered on the background read loop thread (not the caller's thread).
+    /// </summary>
+    public bool Subscribe(string evt)
+    {
+        if (!IsConnected)
+            return false;
+
+        try
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                cmd = "SUBSCRIBE",
+                nonce = Guid.NewGuid().ToString(),
+                evt,
+            });
+
+            WriteFrame(OpFrame, payload);
             return true;
         }
         catch (Exception)
@@ -108,12 +154,79 @@ public sealed class DiscordIpcClient : IDisposable
     public void Disconnect()
     {
         IsConnected = false;
+
+        try { _readLoopCts?.Cancel(); } catch (Exception) { }
         try { _stream?.Dispose(); }
         catch (Exception) { /* best-effort */ }
         _stream = null;
+        _readLoopCts?.Dispose();
+        _readLoopCts = null;
     }
 
     public void Dispose() => Disconnect();
+
+    private void ReadLoop(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                string? json;
+                try
+                {
+                    json = ReadFrameRaw();
+                }
+                catch (Exception)
+                {
+                    // Stream closed or errored - stop the loop quietly. The next SetActivity/
+                    // Subscribe call will observe IsConnected is now false via Disconnect below.
+                    break;
+                }
+
+                if (json is null)
+                    continue;
+
+                TryHandleIncomingFrame(json);
+            }
+        }
+        catch (Exception)
+        {
+            // background loop must never throw out to the thread pool
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+                Disconnect();
+        }
+    }
+
+    private void TryHandleIncomingFrame(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("evt", out var evtEl) || evtEl.ValueKind != JsonValueKind.String)
+                return;
+
+            if (!string.Equals(evtEl.GetString(), "ACTIVITY_JOIN", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (root.TryGetProperty("data", out var dataEl) &&
+                dataEl.TryGetProperty("secret", out var secretEl) &&
+                secretEl.ValueKind == JsonValueKind.String)
+            {
+                var secret = secretEl.GetString();
+                if (!string.IsNullOrEmpty(secret))
+                    ActivityJoinRequested?.Invoke(secret);
+            }
+        }
+        catch (Exception)
+        {
+            // malformed frame - ignore, keep the loop alive
+        }
+    }
 
     private static object BuildActivityPayload(DiscordActivity activity)
     {
@@ -243,17 +356,36 @@ public sealed class DiscordIpcClient : IDisposable
         BitConverter.GetBytes(opcode).CopyTo(header, 0);
         BitConverter.GetBytes(payload.Length).CopyTo(header, 4);
 
-        _stream.Write(header, 0, header.Length);
-        _stream.Write(payload, 0, payload.Length);
-        _stream.Flush();
+        // Guards against the foreground thread (SetActivity/Subscribe) and the background
+        // read loop's own writes (there currently are none, but this stays cheap insurance)
+        // interleaving mid-frame.
+        lock (_writeLock)
+        {
+            if (_stream is null)
+                throw new InvalidOperationException("Not connected.");
+
+            _stream.Write(header, 0, header.Length);
+            _stream.Write(payload, 0, payload.Length);
+            _stream.Flush();
+        }
     }
 
-    private void ReadFrame()
+    /// <summary>Reads one frame and returns its JSON payload (or null for an empty/close frame).</summary>
+    private string? ReadFrameRaw()
     {
         var header = ReadExact(8);
+        var opcode = BitConverter.ToInt32(header, 0);
         var length = BitConverter.ToInt32(header, 4);
-        if (length > 0)
-            ReadExact(length);
+
+        if (length <= 0)
+            return null;
+
+        var payload = ReadExact(length);
+
+        if (opcode == OpClose)
+            throw new IOException("Discord sent a close frame.");
+
+        return Encoding.UTF8.GetString(payload);
     }
 
     private byte[] ReadExact(int count)

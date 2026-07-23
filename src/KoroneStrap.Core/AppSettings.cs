@@ -26,9 +26,11 @@ public class AppSettings
     public bool DiscordShowAccount { get; set; }
 
     /// <summary>
-    /// Captured from the userId param of a pekora-player:// join link (see KoroneUriParser),
-    /// never from reading any credential/auth storage. Only ever populated by join links, so
-    /// it won't be set for clients launched directly from the Launch tab.
+    /// Last-seen userId, from either a pekora-player:// join link's userId param or the
+    /// client's own "[FLog::GameJoinLoadTime]" log line (see KoroneActivityWatcher /
+    /// GameJoinInfo) - both are the client/link self-reporting this value publicly, never
+    /// anything read from credential/auth storage. Unlike before, this now populates for any
+    /// launch with activity tracking on, not just ones that arrived via a join link.
     /// </summary>
     public string? LastKnownUserId { get; set; }
 

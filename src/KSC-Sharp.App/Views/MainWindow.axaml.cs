@@ -251,6 +251,25 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles a friend clicking "Ask to Join" on this app's Discord activity. Deliberately
+    /// opens the browser to the game page rather than attempting to launch the client directly
+    /// with just a placeId: a real Korone/Roblox-family join needs a negotiated authentication
+    /// ticket for that specific server instance, which this app has no way to obtain for a
+    /// friend-initiated join (unlike a pekora-player:// link, which already carries one). The
+    /// browser already has the user's real logged-in session, so it can complete a proper join
+    /// through Korone's normal web flow - the same reliable path the "Play"/View Game button
+    /// already uses, rather than an unverifiable ticketless launch attempt.
+    /// </summary>
+    private void OnDiscordJoinRequested(string placeId, string year)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            AppendLog($"[*] A friend asked to join (placeId {placeId}). Opening the game page in your browser...");
+            OpenUrl($"https://pekora.zip/games/{placeId}");
+        });
+    }
+
     private void LaunchVersion(ClientVersion version)
     {
         try
@@ -621,9 +640,9 @@ public partial class MainWindow : Window
 
         if (enabled && _activityWatcher is null)
         {
-            _activityWatcher = new KoroneActivityWatcher(OnPresenceStateChanged);
+            _activityWatcher = new KoroneActivityWatcher(OnPresenceStateChanged, OnGameJoinDetected);
             _activityWatcher.Start();
-            AppendLog("[*] Activity tracking started (watching Korone's own KORONESTRAPSDK log channel).");
+            AppendLog("[*] Activity tracking started (watching Korone's own log channel).");
         }
         else if (!enabled && _activityWatcher is not null)
         {
@@ -645,6 +664,49 @@ public partial class MainWindow : Window
         {
             if (_settings.DiscordEnabled && _settings.DiscordShowActivity && _discord.IsConnected)
                 PublishDiscordActivity();
+        });
+    }
+
+    /// <summary>
+    /// Called from a background thread by KoroneActivityWatcher when the client's own log
+    /// reports a [FLog::GameJoinLoadTime] line - placeId/universeId/userId, self-reported by
+    /// the client about its own current session. This is what makes "Show Korone account" work
+    /// for direct in-app launches (not just join links), and is the source of the placeId/
+    /// universeId used to resolve a dynamic game name/icon for Discord.
+    /// </summary>
+    private void OnGameJoinDetected(GameJoinInfo info)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                if (info.UserId is not null)
+                {
+                    _settings.LastKnownUserId = info.UserId;
+                    _settings.Save();
+                    ShowAccountStatusText.Text = $"Last known account id: {info.UserId} (from the running client's own log).";
+                }
+
+                if (info.PlaceId is not null || info.UniverseId is not null)
+                {
+                    _currentPlaceId = info.PlaceId;
+                    _currentUniverseId = info.UniverseId;
+                    AppendLog($"[*] Detected game join: placeId={info.PlaceId ?? "?"}, universeId={info.UniverseId ?? "?"}.");
+
+                    // Best-effort - see KoroneGameInfoClient's doc comment on why this is a
+                    // guess, not a confirmed endpoint. Failure just means no dynamic icon/name.
+                    _currentGameInfo = await KoroneGameInfoClient.TryGetGameInfoAsync(info.PlaceId, info.UniverseId);
+                    if (_currentGameInfo is not null)
+                        AppendLog($"[*] Resolved game info: {_currentGameInfo.Name ?? "(no name)"}, icon: {(_currentGameInfo.IconUrl is null ? "none" : "found")}.");
+                }
+
+                if (_settings.DiscordEnabled && _discord.IsConnected)
+                    PublishDiscordActivity();
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"[!] Game join handling failed: {ex.Message}");
+            }
         });
     }
 
@@ -675,8 +737,10 @@ public partial class MainWindow : Window
         ComboDiscordDisplay.SelectedIndex = _settings.DiscordShowDetails ? 1 : 0;
 
         ShowAccountStatusText.Text = _settings.LastKnownUserId is { } id
-            ? $"Last known account id: {id} (from the last join link you opened)."
-            : "No account id on record yet - open a join link through KSC-Sharp at least once.";
+            ? $"Last known account id: {id}."
+            : "No account id on record yet - enable activity tracking and launch a client, or open a join link.";
+
+        _discord.JoinRequested += OnDiscordJoinRequested;
 
         if (_settings.DiscordEnabled)
             TryConnectDiscord();
@@ -751,11 +815,17 @@ public partial class MainWindow : Window
 
     private ClientVersion? _currentClientVersion;
     private DateTimeOffset? _currentSessionStart;
+    private string? _currentPlaceId;
+    private string? _currentUniverseId;
+    private KoroneGameInfo? _currentGameInfo;
 
     private void UpdateDiscordActivity(ClientVersion version)
     {
         _currentClientVersion = version;
         _currentSessionStart = DateTimeOffset.UtcNow;
+        _currentPlaceId = null;
+        _currentUniverseId = null;
+        _currentGameInfo = null;
 
         if (!_settings.DiscordEnabled)
             return;
@@ -785,30 +855,50 @@ public partial class MainWindow : Window
         string? state = null;
         if (_settings.DiscordShowDetails)
         {
-            state = _latestPresenceState ?? (_currentClientVersion is { } v ? $"{v.DisplayName} client" : null);
+            state = _latestPresenceState ?? _currentGameInfo?.Name ?? (_currentClientVersion is { } v ? $"{v.DisplayName} client" : null);
         }
 
         if (_settings.DiscordShowAccount && _settings.LastKnownUserId is { } id)
             state = state is null ? $"Account {id}" : $"{state} · Account {id}";
+
+        // Dynamic per-game icon when resolved (see KoroneGameInfoClient - best-effort, not
+        // guaranteed), falling back to the static app icon otherwise. Discord's local IPC
+        // accepts a direct HTTPS image URL here, not just a pre-uploaded asset key.
+        var largeImageKey = _currentGameInfo?.IconUrl ?? KoroneConfig.DiscordLargeImageKey;
+        var largeImageText = _currentGameInfo?.Name ?? KoroneConfig.DiscordLargeImageText;
+
+        var buttonLabel = "Play Korone";
+        var buttonUrl = "https://pekora.zip";
+        if (_currentPlaceId is not null)
+        {
+            // A real per-game link now that we have a placeId - from the client's own log or
+            // a join-link URI, never from an authenticated API call.
+            buttonLabel = _currentGameInfo?.Name is { } name ? $"Play {name}" : "View Game";
+            buttonUrl = $"https://pekora.zip/games/{_currentPlaceId}";
+        }
 
         var activity = new DiscordActivity
         {
             Details = $"Playing {KoroneConfig.ProductName}",
             State = state,
             StartTimestamp = _currentSessionStart ?? DateTimeOffset.UtcNow,
-            LargeImageKey = KoroneConfig.DiscordLargeImageKey,
-            LargeImageText = KoroneConfig.DiscordLargeImageText,
+            LargeImageKey = largeImageKey,
+            LargeImageText = largeImageText,
             SmallImageKey = KoroneConfig.DiscordSmallImageKey,
             PartyId = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString() : null,
             PartySize = _settings.DiscordAllowJoining ? 1 : null,
             PartyMax = _settings.DiscordAllowJoining ? 4 : null,
-            JoinSecret = _settings.DiscordAllowJoining ? Guid.NewGuid().ToString("N") : null,
-            // A generic link, not a per-game one - the official Korone Discord RPC client can
-            // show a "View Game" button pointing at a specific game URL because it polls an
-            // authenticated API using a login ticket. KSC-Sharp doesn't do that (see
-            // KoroneActivityWatcher's doc comment), so this points at Korone generally instead
-            // of pretending to know which specific game is running.
-            Buttons = new[] { ("Play Korone", "https://pekora.zip") },
+            // Encodes the current placeId so an incoming ACTIVITY_JOIN (a friend clicking Join)
+            // can be turned back into a real launch - see DiscordRpcManager.JoinRequested and
+            // MainWindow's subscription to it. Falls back to a random, non-decodable secret
+            // when there's no known placeId, which just means a join click won't do anything
+            // (same as the previous outbound-only behavior) rather than erroring.
+            JoinSecret = _settings.DiscordAllowJoining
+                ? (_currentPlaceId is not null && _currentClientVersion is not null
+                    ? DiscordRpcManager.EncodeJoinSecret(_currentPlaceId, _currentClientVersion.FolderName)
+                    : Guid.NewGuid().ToString("N"))
+                : null,
+            Buttons = new[] { (buttonLabel, buttonUrl) },
         };
 
         var ok = _discord.SetActivity(activity);
@@ -951,6 +1041,7 @@ public partial class MainWindow : Window
         };
 
         BtnVerifyGraphicsApi.Click += BtnVerifyGraphicsApi_Click;
+        BtnCheckRenderer.Click += BtnCheckRenderer_Click;
     }
 
     /// <summary>
@@ -980,6 +1071,35 @@ public partial class MainWindow : Window
             : $"Applied to {applyResult.TargetsWritten} install(s), but {mismatches.Count} didn't verify: {string.Join("; ", mismatches)}";
 
         AppendLog($"[*] Graphics API apply & verify: {GraphicsApiStatusText.Text}");
+    }
+
+    /// <summary>
+    /// Scans the most recent client log for graphics-API-related lines. See RendererProbe's
+    /// doc comment for why this surfaces raw evidence instead of claiming a definitive parse -
+    /// there's no confirmed log line format for renderer selection the way there is for, say,
+    /// the server-IP or game-join detection elsewhere in this app.
+    /// </summary>
+    private void BtnCheckRenderer_Click(object? sender, RoutedEventArgs e)
+    {
+        var result = RendererProbe.Probe();
+
+        RendererProbeSummaryText.Text = result.Summary;
+        RendererProbeResultsList.Items.Clear();
+
+        foreach (var line in result.MatchingLines.TakeLast(20))
+        {
+            RendererProbeResultsList.Items.Add(new TextBlock
+            {
+                Text = line,
+                Classes = { "subtle" },
+                FontFamily = new FontFamily("Consolas,Menlo,monospace"),
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        RendererProbeResultsPanel.IsVisible = true;
+        AppendLog($"[*] Renderer check: {result.Summary}");
     }
 
     // ----- About page -----

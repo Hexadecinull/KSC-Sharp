@@ -5,27 +5,46 @@ using KSCSharp.Core.Diagnostics;
 
 namespace KSCSharp.Core.Discord;
 
+/// <summary>PlaceId/UniverseId/UserId self-reported by the client about its own current session - see the class doc comment for how this is captured.</summary>
+public record GameJoinInfo(string? PlaceId, string? UniverseId, string? UserId);
+
 /// <summary>
-/// Watches for Korone's own "KORONESTRAPSDK" log marker and decodes presenceStateChange
-/// events from it - the exact mechanism Korone's official Discord RPC client (also called
-/// "KoroneStrap", K-major - a different project from koroneStrap the Python bootstrapper this
-/// whole app is a rewrite of) uses to learn what to show as the Discord "state" text.
+/// Watches the client's own log file for two things, both public/self-reported by the client
+/// about itself - no credentials involved in either:
 ///
-/// This is deliberately the safe half of what the official client does. Its full pipeline
-/// also authenticates to pekora.zip's API using a login ticket (passed to it via
-/// --AuthenticationTicket=... by Korone's own bootstrapper) to poll for which specific game
-/// and icon to display. KSC-Sharp does not do that: capturing or using an authentication
-/// ticket to make API calls as the user is treated the same as reading account credentials
-/// elsewhere in this project - a line this project doesn't cross without it being an explicit,
-/// separate decision. What's implemented here is the log-tailing half only: a public,
-/// documented, non-credential channel that Korone's own client itself reads from.
+///  1. Korone's own "KORONESTRAPSDK" log marker - the exact mechanism Korone's official
+///     Discord RPC client (also called "KoroneStrap", K-major - a different project from
+///     koroneStrap the Python bootstrapper this whole app is a rewrite of) uses to learn what
+///     to show as the Discord "state" text.
+///
+///  2. A "[FLog::GameJoinLoadTime]" line, confirmed against a real captured Roblox client log
+///     (not just documentation) to contain comma-separated "key:value" pairs including
+///     placeid, universeid, and userid every time the client successfully joins a game. This
+///     is the client self-reporting its own current session, the same way it self-reports a
+///     server IP via UDMUX elsewhere in this project - not an interception of any secret. This
+///     is what makes dynamic Discord presence (game name/icon) and "Show Korone account"
+///     possible for ANY launch, not just ones that arrived via a pekora-player:// join link.
+///
+/// This is deliberately the safe half of what Korone's official Discord RPC client does. Its
+/// full pipeline also authenticates to pekora.zip's API using a login ticket (passed to it via
+/// --AuthenticationTicket=... by Korone's own bootstrapper) for richer per-game data. KSC-Sharp
+/// does not do that: capturing or using an authentication ticket to make API calls as the user
+/// is treated the same as reading account credentials elsewhere in this project - a line this
+/// project doesn't cross without it being an explicit, separate decision.
 /// </summary>
 public sealed class KoroneActivityWatcher : IDisposable
 {
-    private static readonly Regex LineMarkerPattern =
+    private static readonly Regex SdkMarkerPattern =
         new(@"\[\s*KORONESTRAPSDK\s*\]\s*\(?([A-Za-z0-9+/=]+)\)?", RegexOptions.Compiled);
 
-    private readonly Action<string> _onPresenceState;
+    private static readonly Regex GameJoinLoadTimePattern =
+        new(@"\[FLog::GameJoinLoadTime\]", RegexOptions.Compiled);
+
+    private static readonly Regex KeyValuePattern =
+        new(@"(\w+)\s*:\s*([^,]+)", RegexOptions.Compiled);
+
+    private readonly Action<string>? _onPresenceState;
+    private readonly Action<GameJoinInfo>? _onGameJoin;
     private FileSystemWatcher? _watcher;
     private FileStream? _fileStream;
     private StreamReader? _reader;
@@ -34,9 +53,10 @@ public sealed class KoroneActivityWatcher : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _tailTask;
 
-    public KoroneActivityWatcher(Action<string> onPresenceState)
+    public KoroneActivityWatcher(Action<string>? onPresenceState = null, Action<GameJoinInfo>? onGameJoin = null)
     {
         _onPresenceState = onPresenceState;
+        _onGameJoin = onGameJoin;
     }
 
     /// <summary>Starts tailing the logs directory in the background. No-op if the directory doesn't exist yet.</summary>
@@ -152,8 +172,49 @@ public sealed class KoroneActivityWatcher : IDisposable
 
     private void TryHandleLine(string line)
     {
-        var match = LineMarkerPattern.Match(line);
-        if (!match.Success)
+        if (GameJoinLoadTimePattern.IsMatch(line))
+        {
+            TryHandleGameJoinLine(line);
+            return;
+        }
+
+        var match = SdkMarkerPattern.Match(line);
+        if (match.Success)
+            TryHandleSdkMarker(match);
+    }
+
+    private void TryHandleGameJoinLine(string line)
+    {
+        if (_onGameJoin is null)
+            return;
+
+        try
+        {
+            string? placeId = null, universeId = null, userId = null;
+            foreach (Match m in KeyValuePattern.Matches(line))
+            {
+                var key = m.Groups[1].Value.ToLowerInvariant();
+                var value = m.Groups[2].Value.Trim();
+                switch (key)
+                {
+                    case "placeid": placeId = value; break;
+                    case "universeid": universeId = value; break;
+                    case "userid": userId = value; break;
+                }
+            }
+
+            if (placeId is not null || universeId is not null || userId is not null)
+                _onGameJoin(new GameJoinInfo(placeId, universeId, userId));
+        }
+        catch (Exception)
+        {
+            // malformed line - ignore
+        }
+    }
+
+    private void TryHandleSdkMarker(Match match)
+    {
+        if (_onPresenceState is null)
             return;
 
         try

@@ -118,6 +118,7 @@ public static class KoroneConfig
 
             var dir = Path.Combine(baseDir, AppName);
             Directory.CreateDirectory(dir);
+            Platform.AppDataProtection.EnsureHardened(dir);
             return dir;
         }
     }

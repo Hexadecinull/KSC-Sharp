@@ -18,9 +18,12 @@ namespace KSCSharp.Core;
 public static class EngineFlags
 {
     public const string PreferD3D11 = "FFlagDebugGraphicsPreferD3D11";
+    public const string PreferD3D11Alt = "FFlagDebugGraphicsPreferDirect3D11";
     public const string PreferOpenGL = "FFlagDebugGraphicsPreferOpenGL";
     public const string PreferVulkan = "FFlagDebugGraphicsPreferVulkan";
     public const string DisableD3D11 = "FFlagDebugGraphicsDisableDirect3D11";
+    public const string DisableVulkan = "FFlagDebugGraphicsDisableVulkan";
+    public const string GLTextureReduction = "FFlagGraphicsGLTextureReduction";
 
     public const string TaskSchedulerTargetFps = "DFIntTaskSchedulerTargetFps";
 
@@ -41,15 +44,19 @@ public static class EngineFlags
     public static void ApplyGraphicsApi(Dictionary<string, object> flags, GraphicsApi api)
     {
         flags.Remove(PreferD3D11);
+        flags.Remove(PreferD3D11Alt);
         flags.Remove(PreferOpenGL);
         flags.Remove(PreferVulkan);
         flags.Remove(DisableD3D11);
+        flags.Remove(DisableVulkan);
+        flags.Remove(GLTextureReduction);
 
         switch (api)
         {
             case GraphicsApi.OpenGL:
                 flags[DisableD3D11] = true;
                 flags[PreferOpenGL] = true;
+                flags[GLTextureReduction] = true;
                 break;
             case GraphicsApi.Vulkan:
                 flags[DisableD3D11] = true;
@@ -57,6 +64,7 @@ public static class EngineFlags
                 break;
             default:
                 flags[PreferD3D11] = true;
+                flags[PreferD3D11Alt] = true;
                 break;
         }
     }

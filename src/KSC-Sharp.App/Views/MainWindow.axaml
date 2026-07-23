@@ -439,6 +439,20 @@
             <Button x:Name="BtnVerifyGraphicsApi" Content="Apply &amp; Verify Now" Classes="secondary"/>
             <TextBlock x:Name="GraphicsApiStatusText" Classes="subtle" VerticalAlignment="Center" TextWrapping="Wrap"/>
           </StackPanel>
+
+          <StackPanel Spacing="6" Margin="0,4,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button x:Name="BtnCheckRenderer" Content="Check Which Renderer Actually Loaded" Classes="ghost"/>
+              <TextBlock Text="ⓘ" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                         ToolTip.Tip="Scans the most recent client log for lines mentioning a graphics API. There's no confirmed exact log format for this (unlike a few other things in this app), so this shows the raw matching lines for you to read yourself rather than claiming to interpret them definitively. Run this after launching a client with a preset applied."/>
+            </StackPanel>
+            <Border x:Name="RendererProbeResultsPanel" Classes="card" IsVisible="False">
+              <StackPanel Spacing="4">
+                <TextBlock x:Name="RendererProbeSummaryText" Classes="subtle" TextWrapping="Wrap"/>
+                <ItemsControl x:Name="RendererProbeResultsList"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
         </StackPanel>
       </ScrollViewer>
 

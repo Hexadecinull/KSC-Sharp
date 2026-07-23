@@ -10,6 +10,10 @@ public class ParsedUri
 
     /// <summary>The userId param from the link, if present - used for "Show Korone account" (see AppSettings).</summary>
     public string? UserId { get; set; }
+
+    /// <summary>PlaceId/UniverseId from the link, if present - public game identifiers, used for dynamic Discord presence.</summary>
+    public string? PlaceId { get; set; }
+    public string? UniverseId { get; set; }
 }
 
 public static class KoroneUriParser
@@ -70,6 +74,12 @@ public static class KoroneUriParser
 
             if (key == "userId")
                 parsed.UserId = val;
+
+            if (key == "placeId")
+                parsed.PlaceId = val;
+
+            if (key == "universeId")
+                parsed.UniverseId = val;
 
             if (key == "launchmode")
             {
